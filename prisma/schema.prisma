@@ -1,0 +1,154 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  uploadedTemplates UploadedTemplate[]
+  drafts           Draft[]
+  activityLogs     ActivityLog[]
+  comments         Comment[]
+
+  @@map("users")
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  financialYear String
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  uploadedTemplates UploadedTemplate[]
+
+  @@map("templates")
+}
+
+model UploadedTemplate {
+  id          String   @id @default(cuid())
+  userId      String
+  templateId  String
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  financialYear String
+  status      UploadStatus @default(PENDING)
+  uploadedAt  DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template  Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  drafts    Draft[]
+
+  @@map("uploaded_templates")
+}
+
+model Draft {
+  id          String   @id @default(cuid())
+  userId      String
+  uploadedTemplateId String?
+  draftNumber Int
+  draftType   DraftType
+  fileName    String
+  fileUrl     String
+  fileSize    Int
+  financialYear String
+  status      DraftStatus @default(PENDING)
+  isFinal     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  uploadedTemplate UploadedTemplate? @relation(fields: [uploadedTemplateId], references: [id], onDelete: Cascade)
+  comments         Comment[]
+
+  @@map("drafts")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  draftId   String?
+  content   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  draft Draft? @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model ActivityLog {
+  id        String        @id @default(cuid())
+  userId    String
+  action    ActivityAction
+  details   String
+  createdAt DateTime      @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum UploadStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DraftType {
+  ADMIN
+  USER
+}
+
+enum DraftStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FINAL
+}
+
+enum ActivityAction {
+  LOGIN
+  LOGOUT
+  UPLOAD_TEMPLATE
+  DOWNLOAD_TEMPLATE
+  CREATE_DRAFT
+  UPDATE_DRAFT
+  APPROVE_DRAFT
+  REJECT_DRAFT
+  FINALIZE_DRAFT
+  CREATE_USER
+  UPDATE_USER
+  DELETE_USER
+}
