@@ -2,6 +2,10 @@
 
 A comprehensive platform for Milk Unions and Milk Producer Companies to manage sustainability reporting with admin and user roles, template management, and draft workflow.
 
+## 🚀 Automatic Deployment Test
+
+This project is now connected to GitHub for automatic deployments. Any push to the main branch will automatically trigger a deployment on Vercel.
+
 ## Features
 
 ### Admin Features
