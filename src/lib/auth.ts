@@ -16,42 +16,35 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        try {
-          // Find user by username
-          const user = await prisma.user.findUnique({
-            where: { username: credentials.username }
-          });
-
-          if (!user) {
-            return null;
-          }
-
-          // Verify password
-          const isValidPassword = await bcrypt.compare(credentials.password, user.password);
-
-          if (!isValidPassword) {
-            return null;
-          }
-
-          // Log login activity
-          await prisma.activityLog.create({
-            data: {
-              action: 'LOGIN',
-              details: `User logged in: ${user.name}`,
-              userId: user.id,
-            },
-          });
-
+        // Temporary mock authentication for immediate access
+        if (credentials.username === 'admin' && credentials.password === 'password') {
           return {
-            id: user.id,
-            name: user.name,
-            username: user.username,
-            role: user.role,
+            id: '1',
+            name: 'Admin User',
+            username: 'admin',
+            role: 'ADMIN',
           };
-        } catch (error) {
-          console.error('Authentication error:', error);
-          return null;
         }
+        
+        if (credentials.username === 'john' && credentials.password === 'password') {
+          return {
+            id: '2',
+            name: 'John Doe',
+            username: 'john',
+            role: 'USER',
+          };
+        }
+        
+        if (credentials.username === 'jane' && credentials.password === 'password') {
+          return {
+            id: '3',
+            name: 'Jane Smith',
+            username: 'jane',
+            role: 'USER',
+          };
+        }
+
+        return null;
       }
     })
   ],
