@@ -109,3 +109,10 @@ export function getNextDraftNumber(userId: string) {
   if (userDrafts.length === 0) return 1;
   return Math.max(...userDrafts.map(d => d.draftNumber)) + 1;
 }
+
+// Function to get next draft number for a specific upload (to maintain sequence)
+export function getNextDraftNumberForUpload(uploadId: string) {
+  const uploadDrafts = getDraftsByUploadId(uploadId);
+  if (uploadDrafts.length === 0) return 1;
+  return Math.max(...uploadDrafts.map(d => d.draftNumber)) + 1;
+}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { put } from '@vercel/blob';
-import { getAllDrafts, addMockDraft, updateDraftStatus, getDraftsByUserId, getNextDraftNumber } from '@/lib/mock-drafts';
+import { getAllDrafts, addMockDraft, updateDraftStatus, getDraftsByUserId, getNextDraftNumber, getNextDraftNumberForUpload } from '@/lib/mock-drafts';
 import { getAllUploads } from '@/lib/mock-uploads';
 import { getAllUsers } from '@/lib/mock-users';
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create draft object
-    const draftNumber = getNextDraftNumber(userId);
+    const draftNumber = getNextDraftNumberForUpload(uploadId);
     const draft = {
       draftNumber,
       draftType: "ADMIN_TO_USER",

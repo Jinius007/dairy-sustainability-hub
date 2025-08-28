@@ -44,22 +44,32 @@ export default function UserDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
+    <div className="min-h-screen gradient-bg">
+      {/* Header */}
+      <div className="glass-effect border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                User Dashboard
-              </h1>
+          <div className="flex justify-between items-center h-20">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-lg">U</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                  User Dashboard
+                </h1>
+                <p className="text-sm text-gray-600">Sustainability Reporting Portal</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">
-                Welcome, {session.user?.name || "User"}
-              </span>
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">
+                  Welcome, {session.user?.name || "User"}
+                </p>
+                <p className="text-xs text-gray-500">Member</p>
+              </div>
               <button
                 onClick={() => router.push("/api/auth/signout")}
-                className="text-sm text-red-600 hover:text-red-800"
+                className="btn-secondary text-sm"
               >
                 Sign out
               </button>
@@ -68,20 +78,22 @@ export default function UserDashboard() {
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+        <div className="card overflow-hidden">
+          {/* Navigation Tabs */}
+          <div className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100/50">
+            <nav className="flex space-x-1 p-2">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                    className={`flex items-center space-x-2 px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200 ${
                       activeTab === tab.id
-                        ? "border-indigo-500 text-indigo-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        ? "bg-white text-green-600 shadow-md border border-gray-200"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -92,7 +104,8 @@ export default function UserDashboard() {
             </nav>
           </div>
 
-          <div className="p-6">
+          {/* Tab Content */}
+          <div className="p-8">
             {activeTab === "templates" && <TemplateDownload />}
             {activeTab === "upload" && <UploadFilledTemplate />}
             {activeTab === "drafts" && <DraftManagement />}
