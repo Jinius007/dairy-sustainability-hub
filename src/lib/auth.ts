@@ -78,5 +78,18 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/signin",
   },
-  secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development"
+  secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development",
+  // Remove NEXTAUTH_URL requirement by using relative URLs
+  useSecureCookies: process.env.NODE_ENV === 'production',
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    }
+  }
 };
