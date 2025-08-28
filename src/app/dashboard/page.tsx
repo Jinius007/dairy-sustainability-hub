@@ -7,7 +7,7 @@ import { Loader2, Download, Upload, FileText, History } from "lucide-react";
 import TemplateDownload from "@/components/user/TemplateDownload";
 import UploadFilledTemplate from "@/components/user/UploadFilledTemplate";
 import DraftManagement from "@/components/user/DraftManagement";
-import HistoryView from "@/components/user/HistoryView";
+import DraftReports from "@/components/user/DraftReports";
 
 export default function UserDashboard() {
   const { data: session, status } = useSession();
@@ -39,8 +39,8 @@ export default function UserDashboard() {
   const tabs = [
     { id: "templates", label: "Download Templates", icon: Download },
     { id: "upload", label: "Upload Filled Data", icon: Upload },
-    { id: "drafts", label: "Draft Management", icon: FileText },
-    { id: "history", label: "Previous Years", icon: History },
+    { id: "drafts", label: "My Uploads", icon: FileText },
+    { id: "history", label: "Draft Reports", icon: History },
   ];
 
   return (
@@ -96,7 +96,7 @@ export default function UserDashboard() {
             {activeTab === "templates" && <TemplateDownload />}
             {activeTab === "upload" && <UploadFilledTemplate />}
             {activeTab === "drafts" && <DraftManagement />}
-            {activeTab === "history" && <HistoryView />}
+            {activeTab === "history" && <DraftReports />}
           </div>
         </div>
       </div>

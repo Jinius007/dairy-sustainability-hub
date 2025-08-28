@@ -2,31 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { put } from '@vercel/blob';
-import { getDraftsByUserId, addMockDraft, updateDraftStatus, getNextDraftNumber } from '@/lib/mock-drafts';
+import { getAllDrafts, addMockDraft, updateDraftStatus, getDraftsByUserId, getNextDraftNumber } from '@/lib/mock-drafts';
 import { getAllUploads } from '@/lib/mock-uploads';
+import { getAllUsers } from '@/lib/mock-users';
 
-// GET - Get user's drafts
+// GET - Get all drafts (admin only)
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - Admin access required' },
         { status: 401 }
       );
     }
 
-    // Get drafts for the current user
-    const drafts = getDraftsByUserId(session.user.id);
-    
-    // Add upload information
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const uploadId = searchParams.get('uploadId');
+
+    let drafts;
+    if (userId) {
+      drafts = getDraftsByUserId(userId);
+    } else {
+      drafts = getAllDrafts();
+    }
+
+    // Add user and upload information
+    const users = getAllUsers();
     const uploads = getAllUploads();
-    const userUploads = uploads.filter(upload => upload.userId === session.user.id);
     
     const draftsWithDetails = drafts.map(draft => {
-      const upload = userUploads.find(u => u.id === draft.uploadId);
+      const user = users.find(u => u.id === draft.userId);
+      const upload = uploads.find(u => u.id === draft.uploadId);
       return {
         ...draft,
+        user: user || draft.user,
         originalUpload: upload ? {
           fileName: upload.fileName,
           uploadedAt: upload.createdAt
@@ -44,25 +56,27 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - User responds to admin draft
+// POST - Create new draft from user upload (admin only)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - Admin access required' },
         { status: 401 }
       );
     }
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const userId = formData.get('userId') as string;
     const uploadId = formData.get('uploadId') as string;
     const comments = formData.get('comments') as string;
 
-    if (!file || !uploadId) {
+    if (!file || !userId || !uploadId) {
       return NextResponse.json(
-        { error: 'File and upload ID are required' },
+        { error: 'File, user ID, and upload ID are required' },
         { status: 400 }
       );
     }
@@ -80,35 +94,37 @@ export async function POST(request: NextRequest) {
       access: 'public',
     });
 
-    // Get upload information
+    // Get user and upload information
+    const users = getAllUsers();
     const uploads = getAllUploads();
-    const upload = uploads.find(u => u.id === uploadId && u.userId === session.user.id);
+    const user = users.find(u => u.id === userId);
+    const upload = uploads.find(u => u.id === uploadId);
 
-    if (!upload) {
+    if (!user || !upload) {
       return NextResponse.json(
-        { error: 'Upload not found or access denied' },
+        { error: 'User or upload not found' },
         { status: 404 }
       );
     }
 
-    // Create draft response object
-    const draftNumber = getNextDraftNumber(session.user.id);
+    // Create draft object
+    const draftNumber = getNextDraftNumber(userId);
     const draft = {
       draftNumber,
-      draftType: "USER_TO_ADMIN",
+      draftType: "ADMIN_TO_USER",
       fileName: file.name,
       fileUrl: blob.url,
       fileSize: file.size,
       financialYear: upload.financialYear,
       status: "PENDING_REVIEW",
-      userId: session.user.id,
+      userId,
       templateId: upload.templateId,
       uploadId,
-      comments: comments || `Response to draft ${draftNumber - 1}. Please review the changes.`,
+      comments: comments || `Draft ${draftNumber} created from your uploaded data. Please review and provide feedback.`,
       user: {
-        id: session.user.id,
-        name: session.user.name,
-        username: session.user.username
+        id: user.id,
+        name: user.name,
+        username: user.username
       },
       template: upload.template,
       originalUpload: {
@@ -120,31 +136,32 @@ export async function POST(request: NextRequest) {
     // Add to shared drafts storage
     const savedDraft = addMockDraft(draft);
 
-    console.log('User draft response created successfully:', {
+    console.log('Draft created successfully:', {
       draftId: savedDraft.id,
       fileName: file.name,
       blobUrl: blob.url,
-      user: session.user.username,
+      createdFor: user.username,
       draftNumber
     });
 
     return NextResponse.json(savedDraft, { status: 201 });
   } catch (error) {
-    console.error('Error creating draft response:', error);
+    console.error('Error creating draft:', error);
     return NextResponse.json(
-      { error: 'Failed to create draft response' },
+      { error: 'Failed to create draft' },
       { status: 500 }
     );
   }
 }
 
-// PUT - User updates draft status (e.g., mark as reviewed)
+// PUT - Update draft status (admin only)
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
+    
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - Admin access required' },
         { status: 401 }
       );
     }
@@ -167,15 +184,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Verify user owns this draft
-    if (updatedDraft.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      );
-    }
-
-    console.log(`User updated draft ${id} status to: ${status}`);
+    console.log(`Admin updated draft ${id} status to: ${status}`);
 
     return NextResponse.json(updatedDraft);
   } catch (error) {

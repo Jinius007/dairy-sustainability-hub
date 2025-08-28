@@ -23,7 +23,7 @@ interface Draft {
   };
 }
 
-export default function DraftManagement() {
+export default function UserUploadsManagement() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -117,9 +117,9 @@ export default function DraftManagement() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">User Uploads Management</h2>
+        <h2 className="text-lg font-medium text-gray-900 mb-4">User Filled Templates</h2>
         <p className="text-sm text-gray-600 mb-4">
-          View and manage all user uploads. You can update the status of each upload.
+          View all user-uploaded filled templates. You can approve/reject them and create draft reports from approved uploads.
         </p>
       </div>
 

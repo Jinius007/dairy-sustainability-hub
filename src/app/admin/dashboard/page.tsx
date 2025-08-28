@@ -3,11 +3,12 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Loader2, Users, FileText, Activity, Upload } from "lucide-react";
+import { Loader2, Users, FileText, Activity, Upload, Download } from "lucide-react";
 import UserManagement from "@/components/admin/UserManagement";
 import TemplateManagement from "@/components/admin/TemplateManagement";
 import ActivityLogs from "@/components/admin/ActivityLogs";
-import DraftManagement from "@/components/admin/DraftManagement";
+import UserUploadsManagement from "@/components/admin/UserUploadsManagement";
+import DraftReportsManagement from "@/components/admin/DraftReportsManagement";
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
@@ -39,7 +40,8 @@ export default function AdminDashboard() {
   const tabs = [
     { id: "users", label: "User Management", icon: Users },
     { id: "templates", label: "Template Management", icon: FileText },
-    { id: "drafts", label: "Draft Management", icon: Upload },
+    { id: "user-uploads", label: "User Filled Templates", icon: Download },
+    { id: "draft-reports", label: "Draft Reports", icon: Upload },
     { id: "activity", label: "Activity Logs", icon: Activity },
   ];
 
@@ -95,7 +97,8 @@ export default function AdminDashboard() {
           <div className="p-6">
             {activeTab === "users" && <UserManagement />}
             {activeTab === "templates" && <TemplateManagement />}
-            {activeTab === "drafts" && <DraftManagement />}
+            {activeTab === "user-uploads" && <UserUploadsManagement />}
+            {activeTab === "draft-reports" && <DraftReportsManagement />}
             {activeTab === "activity" && <ActivityLogs />}
           </div>
         </div>
