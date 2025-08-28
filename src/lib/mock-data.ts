@@ -177,3 +177,23 @@ export const getActivityLogs = (userId?: string) => {
   return mockActivityLogs;
 };
 
+// Function to add new activity logs
+export const addActivityLog = (log: {
+  action: string;
+  details: string;
+  userId: string;
+}) => {
+  const newLog = {
+    id: (mockActivityLogs.length + 1).toString(),
+    action: log.action,
+    details: log.details,
+    userId: log.userId,
+    createdAt: new Date(),
+    user: mockUsers.find(u => u.id === log.userId) || mockUsers[0]
+  };
+  
+  mockActivityLogs.unshift(newLog); // Add to beginning of array
+  console.log('Activity log added:', newLog);
+  return newLog;
+};
+

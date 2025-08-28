@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { authenticateUser } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,8 +16,42 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = authenticateUser(credentials.username, credentials.password);
-        return user;
+        try {
+          // Find user by username
+          const user = await prisma.user.findUnique({
+            where: { username: credentials.username }
+          });
+
+          if (!user) {
+            return null;
+          }
+
+          // Verify password
+          const isValidPassword = await bcrypt.compare(credentials.password, user.password);
+
+          if (!isValidPassword) {
+            return null;
+          }
+
+          // Log login activity
+          await prisma.activityLog.create({
+            data: {
+              action: 'LOGIN',
+              details: `User logged in: ${user.name}`,
+              userId: user.id,
+            },
+          });
+
+          return {
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error('Authentication error:', error);
+          return null;
+        }
       }
     })
   ],
