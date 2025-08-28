@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - Update upload status
+// PUT - Update upload status (mock implementation)
 export async function PUT(request: NextRequest) {
   try {
     const { id, status } = await request.json();
@@ -131,20 +131,25 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const upload = await prisma.upload.update({
-      where: { id },
-      data: { status },
-      include: {
-        user: {
-          select: {
-            name: true,
-            username: true,
-          },
-        },
-      },
-    });
+    // Mock update - in real app this would update database
+    const mockUpload = {
+      id,
+      status,
+      fileName: "mock-file.xlsx",
+      fileUrl: "/uploads/mock-file.xlsx",
+      fileSize: 1024000,
+      financialYear: "2024",
+      userId: "1",
+      templateId: "1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      user: {
+        name: "Mock User",
+        username: "mockuser"
+      }
+    };
 
-    return NextResponse.json(upload);
+    return NextResponse.json(mockUpload);
   } catch (error) {
     console.error('Error updating upload:', error);
     return NextResponse.json(
@@ -154,7 +159,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Delete upload
+// DELETE - Delete upload (mock implementation)
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -167,40 +172,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Get upload info before deletion for logging
-    const upload = await prisma.upload.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            name: true,
-            username: true,
-          },
-        },
-      },
+    // Mock delete - in real app this would delete from database
+    console.log(`Mock delete of upload with ID: ${id}`);
+
+    return NextResponse.json({ 
+      message: 'Upload deleted successfully',
+      deletedId: id
     });
-
-    if (!upload) {
-      return NextResponse.json(
-        { error: 'Upload not found' },
-        { status: 404 }
-      );
-    }
-
-    await prisma.upload.delete({
-      where: { id },
-    });
-
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        action: 'DELETE_USER',
-        details: `Deleted upload: ${upload.fileName}`,
-        userId: upload.userId,
-      },
-    });
-
-    return NextResponse.json({ message: 'Upload deleted successfully' });
   } catch (error) {
     console.error('Error deleting upload:', error);
     return NextResponse.json(
