@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
+  return await setupDatabase();
+}
+
+async function setupDatabase() {
   try {
     console.log('🚀 Setting up database...');
 
