@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Upload, Download, Eye, MessageSquare, Plus } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Loader2, Upload, Download, Eye, MessageSquare, Plus, CheckCircle } from "lucide-react";
 
 interface Draft {
   id: string;
@@ -50,6 +51,7 @@ interface Upload {
 }
 
 export default function DraftReportsManagement() {
+  const { data: session } = useSession();
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -60,6 +62,7 @@ export default function DraftReportsManagement() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [comments, setComments] = useState("");
   const [creatingDraft, setCreatingDraft] = useState(false);
+  const [markingFinal, setMarkingFinal] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDrafts();
@@ -194,6 +197,41 @@ export default function DraftReportsManagement() {
     return type === "ADMIN_TO_USER" 
       ? "bg-blue-100 text-blue-800" 
       : "bg-orange-100 text-orange-800";
+  };
+
+  const canMarkAsFinal = (draft: Draft) => {
+    // Import the function from mock-drafts
+    const { canMarkAsFinal: checkCanMarkAsFinal } = require("@/lib/mock-drafts");
+    return checkCanMarkAsFinal(draft, session?.user?.id);
+  };
+
+  const handleMarkAsFinal = async (draftId: string) => {
+    if (!confirm("Are you sure you want to mark this draft as final? This will end the review process for this report.")) {
+      return;
+    }
+
+    setMarkingFinal(draftId);
+    try {
+      const response = await fetch(`/api/drafts/${draftId}/final`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "FINAL" }),
+      });
+
+      if (response.ok) {
+        fetchDrafts(); // Refresh the list
+        alert("Draft marked as final successfully!");
+      } else {
+        alert("Error marking draft as final. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error marking draft as final:", error);
+      alert("Error marking draft as final. Please try again.");
+    } finally {
+      setMarkingFinal(null);
+    }
   };
 
   const filteredDrafts = selectedUser

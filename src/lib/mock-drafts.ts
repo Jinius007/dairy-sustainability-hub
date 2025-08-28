@@ -128,7 +128,15 @@ export function getNextDraftNumberForUpload(uploadId: string) {
   return Math.max(...uploadDrafts.map(d => d.draftNumber)) + 1;
 }
 
-// Function to check if a draft can be marked as final (only user drafts can be final)
-export function canMarkAsFinal(draft: any) {
-  return draft.draftType === "USER_TO_ADMIN" && draft.status === "PENDING_REVIEW";
+// Function to check if a draft can be marked as final (only recipient can mark as final)
+export function canMarkAsFinal(draft: any, currentUserId?: string) {
+  // Only recipient can mark as final
+  if (draft.draftType === "USER_TO_ADMIN") {
+    // User sent to admin - only admin can mark as final
+    return draft.status === "PENDING_REVIEW" && currentUserId === "1"; // Admin ID is "1"
+  } else if (draft.draftType === "ADMIN_TO_USER") {
+    // Admin sent to user - only user can mark as final
+    return draft.status === "PENDING_REVIEW" && currentUserId === draft.userId;
+  }
+  return false;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Loader2, Download, Eye, Upload, MessageSquare, Reply, FileText, CheckCircle, AlertCircle } from "lucide-react";
 
 interface Draft {
@@ -26,6 +27,7 @@ interface Draft {
 }
 
 export default function DraftReports() {
+  const { data: session } = useSession();
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(true);
   const [showResponseForm, setShowResponseForm] = useState(false);
@@ -155,7 +157,9 @@ export default function DraftReports() {
   };
 
   const canMarkAsFinal = (draft: Draft) => {
-    return draft.draftType === "USER_TO_ADMIN" && draft.status === "PENDING_REVIEW";
+    // Import the function from mock-drafts
+    const { canMarkAsFinal: checkCanMarkAsFinal } = require("@/lib/mock-drafts");
+    return checkCanMarkAsFinal(draft, session?.user?.id);
   };
 
   const sortedDrafts = drafts.sort((a, b) => {
