@@ -66,6 +66,17 @@ export async function POST(request: NextRequest) {
       access: 'public',
     });
 
+    // Get template information
+    const { getTemplateById } = await import('@/lib/mock-templates');
+    const template = getTemplateById(templateId);
+    
+    if (!template) {
+      return NextResponse.json(
+        { error: 'Template not found' },
+        { status: 404 }
+      );
+    }
+
     // Create upload object and add to admin's view
     const upload = {
       fileName: file.name,
@@ -81,8 +92,8 @@ export async function POST(request: NextRequest) {
         username: session.user.username,
       },
       template: {
-        name: "ESG Sustainability Report Template 2024",
-        financialYear: "2024"
+        name: template.name,
+        financialYear: template.financialYear
       }
     };
 

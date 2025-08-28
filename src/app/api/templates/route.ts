@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
 import { put } from '@vercel/blob';
+import { getAllTemplates, addMockTemplate, updateMockTemplate } from '@/lib/mock-templates';
 
 // GET - Get all active templates (for users to download)
 export async function GET() {
   try {
-    // Return mock templates for now
-    const templates = [
-      {
-        id: "1",
-        name: "ESG Sustainability Report Template 2024",
-        fileName: "esg-sustainability-template-2024.xlsx",
-        fileUrl: "/templates/esg-sustainability-template-2024.xlsx",
-        fileSize: 1024000,
-        financialYear: "2024",
-        description: "Comprehensive ESG (Environmental, Social, Governance) sustainability reporting template for 2024",
-        isActive: true,
-        uploadedBy: "1",
-        createdAt: new Date("2024-01-01"),
-        updatedAt: new Date("2024-01-01")
-      }
-    ];
+    // Return all active templates from shared storage
+    const templates = getAllTemplates();
     return NextResponse.json(templates);
   } catch (error) {
     console.error('Error fetching templates:', error);
@@ -71,9 +57,8 @@ export async function POST(request: NextRequest) {
       access: 'public',
     });
 
-    // Create template object (mock data for now)
+    // Create template object and add to shared storage
     const template = {
-      id: Date.now().toString(),
       name,
       fileName: file.name,
       fileUrl: blob.url,
@@ -81,19 +66,20 @@ export async function POST(request: NextRequest) {
       financialYear,
       description,
       isActive: true,
-      uploadedBy: session.user.id,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      uploadedBy: session.user.id
     };
 
+    // Add to shared templates storage
+    const savedTemplate = addMockTemplate(template);
+
     console.log('Template uploaded successfully:', {
-      templateId: template.id,
+      templateId: savedTemplate.id,
       fileName: file.name,
       blobUrl: blob.url,
       uploadedBy: session.user.username
     });
 
-    return NextResponse.json(template, { status: 201 });
+    return NextResponse.json(savedTemplate, { status: 201 });
   } catch (error) {
     console.error('Error uploading template:', error);
     return NextResponse.json(
@@ -124,16 +110,21 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const template = await prisma.template.update({
-      where: { id },
-      data: {
-        name: name || undefined,
-        description: description || undefined,
-        isActive: isActive !== undefined ? isActive : undefined,
-      },
+    // Update template using shared function
+    const updatedTemplate = updateMockTemplate(id, {
+      name: name || undefined,
+      description: description || undefined,
+      isActive: isActive !== undefined ? isActive : undefined,
     });
 
-    return NextResponse.json(template);
+    if (!updatedTemplate) {
+      return NextResponse.json(
+        { error: 'Template not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(updatedTemplate);
   } catch (error) {
     console.error('Error updating template:', error);
     return NextResponse.json(

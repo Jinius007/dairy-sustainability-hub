@@ -4,7 +4,7 @@ export let mockUploads = [
   {
     id: "1",
     fileName: "john-sustainability-2024.xlsx",
-    fileUrl: "/uploads/john-sustainability-2024.xlsx",
+    fileUrl: "https://hub-qfqjta6xl-sinjinis-projects.vercel.app/uploads/john-sustainability-2024.xlsx",
     fileSize: 1536000,
     financialYear: "2024",
     status: "PENDING",
@@ -26,7 +26,7 @@ export let mockUploads = [
   {
     id: "2",
     fileName: "jane-sustainability-2024.xlsx",
-    fileUrl: "/uploads/jane-sustainability-2024.xlsx",
+    fileUrl: "https://hub-qfqjta6xl-sinjinis-projects.vercel.app/uploads/jane-sustainability-2024.xlsx",
     fileSize: 2048000,
     financialYear: "2024",
     status: "APPROVED",
