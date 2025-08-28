@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { addMockUpload } from '@/app/api/admin/uploads/route';
+import { addMockUpload } from '@/lib/mock-uploads';
 
 // GET - Get user's uploads (filtered by user)
 export async function GET(request: NextRequest) {
