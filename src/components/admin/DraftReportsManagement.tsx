@@ -214,9 +214,9 @@ export default function DraftReportsManagement() {
     <div>
       <div className="mb-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Draft Reports Management</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Manage the back-and-forth draft process with users. Create drafts from approved user uploads and track the review process.
-        </p>
+                 <p className="text-sm text-gray-600 mb-4">
+           Manage the back-and-forth draft process with users. Create draft reports (Word/PDF) from approved user uploads and track the review process.
+         </p>
       </div>
 
       {/* Create New Draft Button */}
@@ -277,16 +277,16 @@ export default function DraftReportsManagement() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Draft File
-              </label>
-              <input
-                type="file"
-                required
-                accept=".xlsx,.xls"
-                onChange={handleFileChange}
-                className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              />
+                             <label className="block text-sm font-medium text-gray-700 mb-2">
+                 Upload Draft Report (Word/PDF)
+               </label>
+                             <input
+                 type="file"
+                 required
+                 accept=".docx,.doc,.pdf"
+                 onChange={handleFileChange}
+                 className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+               />
             </div>
 
             <div>

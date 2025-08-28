@@ -81,10 +81,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+    // Validate file type - Draft reports can be Word or PDF files
+    const allowedExtensions = ['.docx', '.doc', '.pdf'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (!allowedExtensions.includes(fileExtension)) {
       return NextResponse.json(
-        { error: 'Only Excel files (.xlsx, .xls) are allowed' },
+        { error: 'Only Word files (.docx, .doc) or PDF files (.pdf) are allowed for draft reports' },
         { status: 400 }
       );
     }
