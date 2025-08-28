@@ -14,7 +14,7 @@ export default function Home() {
 
     if (!session) {
       router.push("/auth/signin");
-    } else if (session.user.role === "ADMIN") {
+    } else if (session.user?.role === "ADMIN") {
       router.push("/admin/dashboard");
     } else {
       router.push("/dashboard");

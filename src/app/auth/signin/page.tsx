@@ -31,12 +31,14 @@ export default function SignIn() {
       });
 
       if (result?.error) {
+        console.error("Sign in error:", result.error);
         setError("Invalid username or password");
       } else {
         router.push("/");
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
+      console.error("Authentication error:", error);
+      setError("Network error or server issue. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }

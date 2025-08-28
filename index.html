@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dairy Sustainability Reporting Hub</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-leaf"></i>
+                    Dairy Sustainability Hub
+                </div>
+                <div class="user-info">
+                    <span id="userName">Welcome</span>
+                    <span id="userRole" class="user-role"></span>
+                    <button id="signOutBtn" class="btn-signout">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Sign Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Tabs -->
+            <div class="tabs" id="tabs">
+                <!-- Tabs will be dynamically generated based on user role -->
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="tabContent">
+                <!-- Content will be dynamically generated based on user role -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

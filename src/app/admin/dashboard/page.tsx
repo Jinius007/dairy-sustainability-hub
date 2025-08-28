@@ -19,7 +19,7 @@ export default function AdminDashboard() {
 
     if (!session) {
       router.push("/auth/signin");
-    } else if (session.user.role !== "ADMIN") {
+    } else if (session.user?.role !== "ADMIN") {
       router.push("/dashboard");
     }
   }, [session, status, router]);
@@ -32,7 +32,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || session.user?.role !== "ADMIN") {
     return null;
   }
 
@@ -55,7 +55,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-500">
-                Welcome, {session.user.name}
+                Welcome, {session.user?.name || "Admin"}
               </span>
               <button
                 onClick={() => router.push("/api/auth/signout")}
