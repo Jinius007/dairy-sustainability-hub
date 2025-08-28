@@ -15,27 +15,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Return mock uploads for now
-    const mockUploads = [
-      {
-        id: "1",
-        fileName: "john-sustainability-2024.xlsx",
-        fileUrl: "/uploads/john-sustainability-2024.xlsx",
-        fileSize: 1536000,
-        financialYear: "2024",
-        status: "PENDING",
-        userId: session.user.id,
-        templateId: "1",
-        createdAt: new Date("2024-08-20"),
-        updatedAt: new Date("2024-08-20"),
-        template: {
-          name: "ESG Sustainability Report Template 2024",
-          financialYear: "2024"
-        }
-      }
-    ];
+    // Return only the current user's uploads
+    const { getAllUploads } = await import('@/lib/mock-uploads');
+    const allUploads = getAllUploads();
+    const userUploads = allUploads.filter(upload => upload.userId === session.user.id);
 
-    return NextResponse.json(mockUploads);
+    return NextResponse.json(userUploads);
   } catch (error) {
     console.error('Error fetching uploads:', error);
     return NextResponse.json(

@@ -1,5 +1,6 @@
 // Shared mock uploads data
 export let mockUploads = [
+  // John's upload
   {
     id: "1",
     fileName: "john-sustainability-2024.xlsx",
@@ -21,13 +22,14 @@ export let mockUploads = [
       financialYear: "2024"
     }
   },
+  // Jane's upload
   {
     id: "2",
     fileName: "jane-sustainability-2024.xlsx",
     fileUrl: "/uploads/jane-sustainability-2024.xlsx",
     fileSize: 2048000,
     financialYear: "2024",
-    status: "PENDING",
+    status: "APPROVED",
     userId: "3", // Jane's ID
     templateId: "1",
     createdAt: new Date("2024-08-21"),
