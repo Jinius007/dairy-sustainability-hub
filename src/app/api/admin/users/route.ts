@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Return user without password
-    const { password: _, ...userWithoutPassword } = newUser;
+    const { password, ...userWithoutPassword } = newUser;
     return NextResponse.json(userWithoutPassword, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
@@ -113,8 +113,7 @@ export async function PUT(request: NextRequest) {
     if (role) mockUsers[userIndex].role = role.toUpperCase();
     if (password) mockUsers[userIndex].password = password;
 
-    const updatedUser = { ...mockUsers[userIndex] };
-    delete updatedUser.password;
+    const { password, ...updatedUser } = mockUsers[userIndex];
 
     return NextResponse.json(updatedUser);
   } catch (error) {
