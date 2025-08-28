@@ -1,31 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-// GET - Get all users
-export async function GET() {
+// Mock user storage (in production, this would be in database)
+let mockUsers = [
+  {
+    id: '1',
+    name: 'Admin User',
+    username: 'admin',
+    role: 'ADMIN'
+  },
+  {
+    id: '2',
+    name: 'John Doe',
+    username: 'john',
+    role: 'USER'
+  },
+  {
+    id: '3',
+    name: 'Jane Smith',
+    username: 'jane',
+    role: 'USER'
+  }
+];
+
+// GET - Get all users (admin only)
+export async function GET(request: NextRequest) {
   try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            uploads: true,
-            reports: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required' },
+        { status: 401 }
+      );
+    }
 
-    return NextResponse.json(users);
+    return NextResponse.json(mockUsers);
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json(
@@ -35,24 +46,29 @@ export async function GET() {
   }
 }
 
-// POST - Create new user
+// POST - Create new user (admin only)
 export async function POST(request: NextRequest) {
   try {
-    const { name, username, password, role = 'USER' } = await request.json();
-
-    // Validate input
-    if (!name || !username || !password) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
-        { error: 'Name, username, and password are required' },
+        { error: 'Unauthorized - Admin access required' },
+        { status: 401 }
+      );
+    }
+
+    const { name, username, role, password } = await request.json();
+
+    if (!name || !username || !role || !password) {
+      return NextResponse.json(
+        { error: 'Name, username, role, and password are required' },
         { status: 400 }
       );
     }
 
     // Check if username already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { username },
-    });
-
+    const existingUser = mockUsers.find(user => user.username === username);
     if (existingUser) {
       return NextResponse.json(
         { error: 'Username already exists' },
@@ -60,36 +76,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // Create new user
+    const newUser = {
+      id: (mockUsers.length + 1).toString(),
+      name,
+      username,
+      role: role.toUpperCase(),
+      password // In production, this would be hashed
+    };
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        username,
-        password: hashedPassword,
-        role: role as 'ADMIN' | 'USER',
-      },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        role: true,
-        createdAt: true,
-      },
+    mockUsers.push(newUser);
+
+    console.log('New user created:', {
+      id: newUser.id,
+      name: newUser.name,
+      username: newUser.username,
+      role: newUser.role
     });
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        action: 'CREATE_USER',
-        details: `Created user: ${name} (${username})`,
-        userId: user.id, // This would be the admin's ID in a real app
-      },
-    });
-
-    return NextResponse.json(user, { status: 201 });
+    // Return user without password
+    const { password: _, ...userWithoutPassword } = newUser;
+    return NextResponse.json(userWithoutPassword, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json(

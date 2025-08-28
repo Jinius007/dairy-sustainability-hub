@@ -1,38 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
-import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // GET - Get user's uploads (filtered by user)
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
+    const session = await getServerSession(authOptions);
+    if (!session) {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    const uploads = await prisma.upload.findMany({
-      where: {
-        userId,
-      },
-      include: {
+    // Return mock uploads for now
+    const mockUploads = [
+      {
+        id: "1",
+        fileName: "john-sustainability-2024.xlsx",
+        fileUrl: "/uploads/john-sustainability-2024.xlsx",
+        fileSize: 1536000,
+        financialYear: "2024",
+        status: "PENDING",
+        userId: session.user.id,
+        templateId: "1",
+        createdAt: new Date("2024-08-20"),
+        updatedAt: new Date("2024-08-20"),
         template: {
-          select: {
-            name: true,
-            financialYear: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+          name: "ESG Sustainability Report Template 2024",
+          financialYear: "2024"
+        }
+      }
+    ];
 
-    return NextResponse.json(uploads);
+    return NextResponse.json(mockUploads);
   } catch (error) {
     console.error('Error fetching uploads:', error);
     return NextResponse.json(
@@ -45,15 +47,22 @@ export async function GET(request: NextRequest) {
 // POST - Upload user data
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const userId = formData.get('userId') as string;
     const templateId = formData.get('templateId') as string;
     const financialYear = formData.get('financialYear') as string;
 
-    if (!file || !userId || !templateId || !financialYear) {
+    if (!file || !templateId || !financialYear) {
       return NextResponse.json(
-        { error: 'File, user ID, template ID, and financial year are required' },
+        { error: 'File, template ID, and financial year are required' },
         { status: 400 }
       );
     }
@@ -66,60 +75,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify template exists and is active
-    const template = await prisma.template.findFirst({
-      where: {
-        id: templateId,
-        isActive: true,
-      },
-    });
-
-    if (!template) {
-      return NextResponse.json(
-        { error: 'Template not found or inactive' },
-        { status: 404 }
-      );
-    }
-
     // Upload to Vercel Blob
     const blob = await put(file.name, file, {
       access: 'public',
     });
 
-    // Save to database
-    const upload = await prisma.upload.create({
-      data: {
-        fileName: file.name,
-        fileUrl: blob.url,
-        fileSize: file.size,
-        financialYear,
-        userId,
-        templateId,
-        status: 'PENDING',
+    // Create upload object (mock data for now)
+    const upload = {
+      id: Date.now().toString(),
+      fileName: file.name,
+      fileUrl: blob.url,
+      fileSize: file.size,
+      financialYear,
+      userId: session.user.id,
+      templateId,
+      status: 'PENDING',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      user: {
+        name: session.user.name,
+        username: session.user.username,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            username: true,
-          },
-        },
-        template: {
-          select: {
-            name: true,
-            financialYear: true,
-          },
-        },
-      },
-    });
+      template: {
+        name: "ESG Sustainability Report Template 2024",
+        financialYear: "2024"
+      }
+    };
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        action: 'UPLOAD_DATA',
-        details: `Uploaded data: ${file.name} for ${financialYear}`,
-        userId,
-      },
+    console.log('File uploaded successfully:', {
+      uploadId: upload.id,
+      fileName: file.name,
+      blobUrl: blob.url,
+      uploadedBy: session.user.username
     });
 
     return NextResponse.json(upload, { status: 201 });

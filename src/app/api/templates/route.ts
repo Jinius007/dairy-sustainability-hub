@@ -11,29 +11,16 @@ export async function GET() {
     const templates = [
       {
         id: "1",
-        name: "Sustainability Report Template 2024",
-        fileName: "sustainability-template-2024.xlsx",
-        fileUrl: "/templates/sustainability-template-2024.xlsx",
+        name: "ESG Sustainability Report Template 2024",
+        fileName: "esg-sustainability-template-2024.xlsx",
+        fileUrl: "/templates/esg-sustainability-template-2024.xlsx",
         fileSize: 1024000,
         financialYear: "2024",
-        description: "Template for 2024 sustainability reporting",
+        description: "Comprehensive ESG (Environmental, Social, Governance) sustainability reporting template for 2024",
         isActive: true,
         uploadedBy: "1",
         createdAt: new Date("2024-01-01"),
         updatedAt: new Date("2024-01-01")
-      },
-      {
-        id: "2",
-        name: "Environmental Impact Assessment",
-        fileName: "environmental-assessment-2024.xlsx", 
-        fileUrl: "/templates/environmental-assessment-2024.xlsx",
-        fileSize: 2048000,
-        financialYear: "2024",
-        description: "Environmental impact assessment template",
-        isActive: true,
-        uploadedBy: "1",
-        createdAt: new Date("2024-01-15"),
-        updatedAt: new Date("2024-01-15")
       }
     ];
     return NextResponse.json(templates);

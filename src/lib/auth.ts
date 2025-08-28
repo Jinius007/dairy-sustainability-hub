@@ -16,35 +16,47 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Temporary mock authentication for immediate access
-        if (credentials.username === 'admin' && credentials.password === 'password') {
-          return {
-            id: '1',
-            name: 'Admin User',
-            username: 'admin',
-            role: 'ADMIN',
-          };
+              // Mock authentication with dynamic user support
+      const mockUsers = [
+        {
+          id: '1',
+          name: 'Admin User',
+          username: 'admin',
+          password: 'password',
+          role: 'ADMIN',
+        },
+        {
+          id: '2',
+          name: 'John Doe',
+          username: 'john',
+          password: 'password',
+          role: 'USER',
+        },
+        {
+          id: '3',
+          name: 'Jane Smith',
+          username: 'jane',
+          password: 'password',
+          role: 'USER',
         }
-        
-        if (credentials.username === 'john' && credentials.password === 'password') {
-          return {
-            id: '2',
-            name: 'John Doe',
-            username: 'john',
-            role: 'USER',
-          };
-        }
-        
-        if (credentials.username === 'jane' && credentials.password === 'password') {
-          return {
-            id: '3',
-            name: 'Jane Smith',
-            username: 'jane',
-            role: 'USER',
-          };
-        }
+      ];
 
-        return null;
+      // Check for user in mock data
+      const user = mockUsers.find(u => 
+        u.username === credentials.username && 
+        u.password === credentials.password
+      );
+
+      if (user) {
+        return {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          role: user.role,
+        };
+      }
+
+      return null;
       }
     })
   ],
