@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { addMockUpload } from '@/app/api/admin/uploads/route';
 
 // GET - Get user's uploads (filtered by user)
 export async function GET(request: NextRequest) {
@@ -80,9 +81,8 @@ export async function POST(request: NextRequest) {
       access: 'public',
     });
 
-    // Create upload object (mock data for now)
+    // Create upload object and add to admin's view
     const upload = {
-      id: Date.now().toString(),
       fileName: file.name,
       fileUrl: blob.url,
       fileSize: file.size,
@@ -90,9 +90,8 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       templateId,
       status: 'PENDING',
-      createdAt: new Date(),
-      updatedAt: new Date(),
       user: {
+        id: session.user.id,
         name: session.user.name,
         username: session.user.username,
       },
@@ -102,14 +101,17 @@ export async function POST(request: NextRequest) {
       }
     };
 
+    // Add to admin's uploads list
+    const savedUpload = addMockUpload(upload);
+
     console.log('File uploaded successfully:', {
-      uploadId: upload.id,
+      uploadId: savedUpload.id,
       fileName: file.name,
       blobUrl: blob.url,
       uploadedBy: session.user.username
     });
 
-    return NextResponse.json(upload, { status: 201 });
+    return NextResponse.json(savedUpload, { status: 201 });
   } catch (error) {
     console.error('Error uploading file:', error);
     return NextResponse.json(
