@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { put } from '@vercel/blob';
-import { getAllTemplates, addMockTemplate, updateMockTemplate } from '@/lib/mock-templates';
+import { getAllTemplates, addMockTemplate, updateMockTemplate, deleteMockTemplate } from '@/lib/mock-templates';
 
 // GET - Get all active templates (for users to download)
 export async function GET() {
@@ -156,9 +156,15 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.template.delete({
-      where: { id },
-    });
+    // Delete template using shared function
+    const deletedTemplate = deleteMockTemplate(id);
+    
+    if (!deletedTemplate) {
+      return NextResponse.json(
+        { error: 'Template not found' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ message: 'Template deleted successfully' });
   } catch (error) {

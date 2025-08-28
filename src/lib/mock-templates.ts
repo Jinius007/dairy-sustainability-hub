@@ -50,3 +50,13 @@ export function updateMockTemplate(id: string, updates: any) {
   }
   return null;
 }
+
+// Function to delete template
+export function deleteMockTemplate(id: string) {
+  const templateIndex = mockTemplates.findIndex(template => template.id === id);
+  if (templateIndex !== -1) {
+    const deletedTemplate = mockTemplates.splice(templateIndex, 1)[0];
+    return deletedTemplate;
+  }
+  return null;
+}
