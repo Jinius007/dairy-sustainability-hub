@@ -7,10 +7,35 @@ import { put } from '@vercel/blob';
 // GET - Get all active templates (for users to download)
 export async function GET() {
   try {
-    const templates = await prisma.template.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: 'desc' }
-    });
+    // Return mock templates for now
+    const templates = [
+      {
+        id: "1",
+        name: "Sustainability Report Template 2024",
+        fileName: "sustainability-template-2024.xlsx",
+        fileUrl: "/templates/sustainability-template-2024.xlsx",
+        fileSize: 1024000,
+        financialYear: "2024",
+        description: "Template for 2024 sustainability reporting",
+        isActive: true,
+        uploadedBy: "1",
+        createdAt: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01")
+      },
+      {
+        id: "2",
+        name: "Environmental Impact Assessment",
+        fileName: "environmental-assessment-2024.xlsx", 
+        fileUrl: "/templates/environmental-assessment-2024.xlsx",
+        fileSize: 2048000,
+        financialYear: "2024",
+        description: "Environmental impact assessment template",
+        isActive: true,
+        uploadedBy: "1",
+        createdAt: new Date("2024-01-15"),
+        updatedAt: new Date("2024-01-15")
+      }
+    ];
     return NextResponse.json(templates);
   } catch (error) {
     console.error('Error fetching templates:', error);
@@ -59,28 +84,20 @@ export async function POST(request: NextRequest) {
       access: 'public',
     });
 
-    // Save template to database
-    const template = await prisma.template.create({
-      data: {
-        name,
-        fileName: file.name,
-        fileUrl: blob.url,
-        fileSize: file.size,
-        financialYear,
-        description,
-        isActive: true,
-        uploadedBy: session.user.id,
-      },
-    });
-
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        action: 'UPLOAD_TEMPLATE',
-        details: `Uploaded template: ${name} for financial year ${financialYear}`,
-        userId: session.user.id,
-      },
-    });
+    // Create template object (mock data for now)
+    const template = {
+      id: Date.now().toString(),
+      name,
+      fileName: file.name,
+      fileUrl: blob.url,
+      fileSize: file.size,
+      financialYear,
+      description,
+      isActive: true,
+      uploadedBy: session.user.id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
     console.log('Template uploaded successfully:', {
       templateId: template.id,
