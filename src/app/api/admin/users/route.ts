@@ -1,28 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-
-// Mock user storage (in production, this would be in database)
-let mockUsers = [
-  {
-    id: '1',
-    name: 'Admin User',
-    username: 'admin',
-    role: 'ADMIN'
-  },
-  {
-    id: '2',
-    name: 'John Doe',
-    username: 'john',
-    role: 'USER'
-  },
-  {
-    id: '3',
-    name: 'Jane Smith',
-    username: 'jane',
-    role: 'USER'
-  }
-];
+import { mockUsers, addMockUser, getAllUsers } from '@/lib/mock-users';
 
 // GET - Get all users (admin only)
 export async function GET(request: NextRequest) {
@@ -36,7 +15,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(mockUsers);
+    return NextResponse.json(getAllUsers());
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json(
@@ -76,16 +55,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create new user
-    const newUser = {
-      id: (mockUsers.length + 1).toString(),
-      name,
-      username,
-      role: role.toUpperCase(),
-      password // In production, this would be hashed
-    };
-
-    mockUsers.push(newUser);
+    // Create new user using shared function
+    const newUser = addMockUser({ name, username, password, role });
 
     console.log('New user created:', {
       id: newUser.id,
@@ -106,9 +77,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - Update user
+// PUT - Update user (mock implementation)
 export async function PUT(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required' },
+        { status: 401 }
+      );
+    }
+
     const { id, name, username, password, role } = await request.json();
 
     if (!id) {
@@ -118,36 +98,25 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updateData: any = {};
-    if (name) updateData.name = name;
-    if (username) updateData.username = username;
-    if (role) updateData.role = role;
-    if (password) {
-      updateData.password = await bcrypt.hash(password, 12);
+    // Find and update user in mock data
+    const userIndex = mockUsers.findIndex(user => user.id === id);
+    if (userIndex === -1) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        role: true,
-        updatedAt: true,
-      },
-    });
+    // Update user
+    if (name) mockUsers[userIndex].name = name;
+    if (username) mockUsers[userIndex].username = username;
+    if (role) mockUsers[userIndex].role = role.toUpperCase();
+    if (password) mockUsers[userIndex].password = password;
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        action: 'UPDATE_USER',
-        details: `Updated user: ${user.name} (${user.username})`,
-        userId: user.id,
-      },
-    });
+    const updatedUser = { ...mockUsers[userIndex] };
+    delete updatedUser.password;
 
-    return NextResponse.json(user);
+    return NextResponse.json(updatedUser);
   } catch (error) {
     console.error('Error updating user:', error);
     return NextResponse.json(
@@ -157,9 +126,18 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Delete user
+// DELETE - Delete user (mock implementation)
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -170,34 +148,22 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Get user info before deletion for logging
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: { name: true, username: true },
-    });
-
-    if (!user) {
+    // Find user in mock data
+    const userIndex = mockUsers.findIndex(user => user.id === id);
+    if (userIndex === -1) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Delete user (cascade will handle related records)
-    await prisma.user.delete({
-      where: { id },
-    });
+    // Delete user from mock data
+    const deletedUser = mockUsers.splice(userIndex, 1)[0];
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        action: 'DELETE_USER',
-        details: `Deleted user: ${user.name} (${user.username})`,
-        userId: id, // This would be the admin's ID in a real app
-      },
+    return NextResponse.json({ 
+      message: 'User deleted successfully',
+      deletedUser: { name: deletedUser.name, username: deletedUser.username }
     });
-
-    return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
     return NextResponse.json(

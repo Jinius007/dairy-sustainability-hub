@@ -1,7 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { findUserByCredentials } from "./mock-users";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,47 +15,19 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-              // Mock authentication with dynamic user support
-      const mockUsers = [
-        {
-          id: '1',
-          name: 'Admin User',
-          username: 'admin',
-          password: 'password',
-          role: 'ADMIN',
-        },
-        {
-          id: '2',
-          name: 'John Doe',
-          username: 'john',
-          password: 'password',
-          role: 'USER',
-        },
-        {
-          id: '3',
-          name: 'Jane Smith',
-          username: 'jane',
-          password: 'password',
-          role: 'USER',
+        // Use shared mock users for authentication
+        const user = findUserByCredentials(credentials.username, credentials.password);
+
+        if (user) {
+          return {
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            role: user.role,
+          };
         }
-      ];
 
-      // Check for user in mock data
-      const user = mockUsers.find(u => 
-        u.username === credentials.username && 
-        u.password === credentials.password
-      );
-
-      if (user) {
-        return {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          role: user.role,
-        };
-      }
-
-      return null;
+        return null;
       }
     })
   ],
