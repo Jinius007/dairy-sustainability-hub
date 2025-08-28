@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Download, Eye, Upload, MessageSquare, Reply } from "lucide-react";
+import { Loader2, Download, Eye, Upload, MessageSquare, Reply, FileText } from "lucide-react";
 
 interface Draft {
   id: string;
