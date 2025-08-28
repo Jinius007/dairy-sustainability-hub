@@ -9,6 +9,18 @@ export async function GET(request: NextRequest) {
 async function setupDatabase() {
   try {
     console.log('🚀 Setting up database...');
+    
+    // Test database connection first
+    try {
+      await prisma.$connect();
+      console.log('✅ Database connection successful');
+    } catch (dbError) {
+      console.error('❌ Database connection failed:', dbError);
+      return NextResponse.json(
+        { error: 'Database connection failed', details: dbError instanceof Error ? dbError.message : 'Unknown database error' },
+        { status: 500 }
+      );
+    }
 
     // Check if admin user already exists
     const existingAdmin = await prisma.user.findUnique({
