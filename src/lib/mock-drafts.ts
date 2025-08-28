@@ -5,8 +5,8 @@ export let mockDrafts = [
     id: "1",
     draftNumber: 1,
     draftType: "ADMIN_TO_USER", // or "USER_TO_ADMIN"
-    fileName: "john-draft-report-v1.xlsx",
-    fileUrl: "https://hub-hk1bvewws-sinjinis-projects.vercel.app/drafts/john-draft-report-v1.xlsx",
+    fileName: "john-draft-report-v1.docx",
+    fileUrl: "https://hub-hk1bvewws-sinjinis-projects.vercel.app/drafts/john-draft-report-v1.docx",
     fileSize: 2048000,
     financialYear: "2024",
     status: "PENDING_REVIEW", // PENDING_REVIEW, APPROVED, REJECTED, FINAL
@@ -35,8 +35,8 @@ export let mockDrafts = [
     id: "2",
     draftNumber: 2,
     draftType: "USER_TO_ADMIN",
-    fileName: "john-draft-response-v2.xlsx",
-    fileUrl: "https://hub-hk1bvewws-sinjinis-projects.vercel.app/drafts/john-draft-response-v2.xlsx",
+    fileName: "john-draft-response-v2.docx",
+    fileUrl: "https://hub-hk1bvewws-sinjinis-projects.vercel.app/drafts/john-draft-response-v2.docx",
     fileSize: 2150400,
     financialYear: "2024",
     status: "PENDING_REVIEW",
@@ -103,6 +103,17 @@ export function updateDraftStatus(id: string, status: string, comments?: string)
   return null;
 }
 
+// Function to mark draft as final
+export function markDraftAsFinal(id: string) {
+  const draftIndex = mockDrafts.findIndex(draft => draft.id === id);
+  if (draftIndex !== -1) {
+    mockDrafts[draftIndex].status = "FINAL";
+    mockDrafts[draftIndex].updatedAt = new Date();
+    return mockDrafts[draftIndex];
+  }
+  return null;
+}
+
 // Function to get next draft number for a user
 export function getNextDraftNumber(userId: string) {
   const userDrafts = getDraftsByUserId(userId);
@@ -115,4 +126,9 @@ export function getNextDraftNumberForUpload(uploadId: string) {
   const uploadDrafts = getDraftsByUploadId(uploadId);
   if (uploadDrafts.length === 0) return 1;
   return Math.max(...uploadDrafts.map(d => d.draftNumber)) + 1;
+}
+
+// Function to check if a draft can be marked as final (only user drafts can be final)
+export function canMarkAsFinal(draft: any) {
+  return draft.draftType === "USER_TO_ADMIN" && draft.status === "PENDING_REVIEW";
 }
