@@ -248,27 +248,7 @@ export default function Home() {
                 </button>
               </form>
 
-              {/* Demo Credentials */}
-              <div className="mt-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
-                <div className="flex items-center space-x-2 mb-4">
-                  <CheckCircle className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-blue-900">Demo Credentials</h3>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-blue-200">
-                    <span className="font-medium text-blue-800">Admin</span>
-                    <span className="text-blue-600 font-mono">admin / admin123</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-blue-200">
-                    <span className="font-medium text-blue-800">John (User)</span>
-                    <span className="text-blue-600 font-mono">john / password123</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-blue-200">
-                    <span className="font-medium text-blue-800">Jane (User)</span>
-                    <span className="text-blue-600 font-mono">jane / password123</span>
-                  </div>
-                </div>
-              </div>
+
 
               {/* Footer */}
               <div className="mt-6 text-center">
