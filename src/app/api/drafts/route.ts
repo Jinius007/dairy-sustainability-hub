@@ -68,7 +68,6 @@ export async function POST(request: NextRequest) {
     const upload = await prisma.upload.findUnique({
       where: { id: uploadId },
       include: {
-        template: true,
         user: true
       }
     });
@@ -155,8 +154,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newDraft, { status: 201 });
   } catch (error) {
     console.error("Error creating draft response:", error);
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
-      { error: "Failed to create draft response" },
+      { error: "Failed to create draft response", details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
