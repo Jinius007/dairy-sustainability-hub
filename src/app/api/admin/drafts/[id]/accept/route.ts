@@ -10,29 +10,29 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: "Unauthorized - Admin access required" }, { status: 401 });
     }
 
     const draftId = params.id;
 
-    // Get the draft and verify user owns it
+    // Get the draft
     const draft = await prisma.draft.findUnique({
-      where: { id: draftId }
+      where: { id: draftId },
+      include: {
+        user: {
+          select: {
+            name: true,
+            username: true
+          }
+        }
+      }
     });
 
     if (!draft) {
       return NextResponse.json(
         { error: "Draft not found" },
         { status: 404 }
-      );
-    }
-
-    // Verify user owns this draft
-    if (draft.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Access denied - you can only accept your own drafts" },
-        { status: 403 }
       );
     }
 
@@ -62,11 +62,11 @@ export async function POST(
       data: {
         userId: session.user.id,
         action: "FINALIZE_DRAFT",
-        details: `Accepted Draft ${draft.draftNumber} as final: ${draft.fileName}`
+        details: `Admin accepted Draft ${draft.draftNumber} as final from ${draft.user.username}: ${draft.fileName}`
       }
     });
 
-    console.log(`User ${session.user.username} accepted draft ${draftId} as final`);
+    console.log(`Admin ${session.user.username} accepted draft ${draftId} as final`);
 
     return NextResponse.json(updatedDraft);
   } catch (error) {

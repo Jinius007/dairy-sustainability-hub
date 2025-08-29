@@ -14,6 +14,9 @@ interface Draft {
   financialYear: string;
   status: string;
   userId: string;
+  acceptedAsFinal: boolean;
+  acceptedBy?: string;
+  acceptedAt?: string;
   createdAt: string;
   user: {
     id: string;
@@ -31,7 +34,7 @@ export default function DraftReports() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [comments, setComments] = useState("");
   const [responding, setResponding] = useState(false);
-  const [markingFinal, setMarkingFinal] = useState<string | null>(null);
+  const [acceptingDraft, setAcceptingDraft] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDrafts();
@@ -85,32 +88,31 @@ export default function DraftReports() {
     }
   };
 
-  const handleMarkAsFinal = async (draftId: string) => {
-    if (!confirm("Are you sure you want to mark this draft as final? This will end the review process for this report.")) {
+  const handleAcceptDraft = async (draftId: string) => {
+    if (!confirm("Are you sure you want to accept this draft as final? This will end the review process for this report.")) {
       return;
     }
 
-    setMarkingFinal(draftId);
+    setAcceptingDraft(draftId);
     try {
-      const response = await fetch(`/api/drafts/${draftId}/final`, {
-        method: "PUT",
+      const response = await fetch(`/api/drafts/${draftId}/accept`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: "FINAL" }),
+        }
       });
 
       if (response.ok) {
         fetchDrafts(); // Refresh the list
-        alert("Draft marked as final successfully!");
+        alert("Draft accepted as final successfully!");
       } else {
-        alert("Error marking draft as final. Please try again.");
+        alert("Error accepting draft. Please try again.");
       }
     } catch (error) {
-      console.error("Error marking draft as final:", error);
-      alert("Error marking draft as final. Please try again.");
+      console.error("Error accepting draft:", error);
+      alert("Error accepting draft. Please try again.");
     } finally {
-      setMarkingFinal(null);
+      setAcceptingDraft(null);
     }
   };
 
@@ -146,6 +148,16 @@ export default function DraftReports() {
     }
   };
 
+  const canRespondToDraft = (draft: Draft) => {
+    // User can respond to admin drafts (odd numbers) that are not already accepted
+    return draft.draftType === "ADMIN" && !draft.acceptedAsFinal;
+  };
+
+  const canAcceptDraft = (draft: Draft) => {
+    // User can accept admin drafts (odd numbers) that are not already accepted
+    return draft.draftType === "ADMIN" && !draft.acceptedAsFinal;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-8">
@@ -159,7 +171,7 @@ export default function DraftReports() {
       <div className="mb-6">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Draft Reports</h2>
         <p className="text-sm text-gray-600 mb-4">
-          View and respond to draft reports from the admin. You can download drafts, respond with changes, or mark them as final.
+          View and respond to draft reports from the admin. You can download drafts, respond with changes, or accept them as final.
         </p>
       </div>
 
@@ -176,21 +188,27 @@ export default function DraftReports() {
             >
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">{draft.fileName}</h3>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Draft #{draft.draftNumber} - {draft.fileName}
+                  </h3>
                   <p className="text-sm text-gray-500">
-                    Financial Year: {draft.financialYear} | Draft #{draft.draftNumber}
+                    Financial Year: {draft.financialYear} | Created: {new Date(draft.createdAt).toLocaleDateString()}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Created: {new Date(draft.createdAt).toLocaleDateString()} | 
                     Size: {formatFileSize(draft.fileSize)}
                   </p>
+                  {draft.acceptedAsFinal && (
+                    <p className="text-sm text-green-600 font-medium">
+                      ✅ Accepted as final on {new Date(draft.acceptedAt!).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(draft.status)}`}>
                     {draft.status}
                   </span>
                   <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getDraftTypeColor(draft.draftType)}`}>
-                    {draft.draftType}
+                    {draft.draftType === "ADMIN" ? "From Admin" : "Your Response"}
                   </span>
                 </div>
               </div>
@@ -210,27 +228,30 @@ export default function DraftReports() {
                   <Download className="h-4 w-4" />
                   <span>Download</span>
                 </button>
-                {draft.status === "PENDING_REVIEW" && (
+                {canRespondToDraft(draft) && (
                   <button
-                    onClick={() => setSelectedDraft(draft)}
+                    onClick={() => {
+                      setSelectedDraft(draft);
+                      setShowResponseForm(true);
+                    }}
                     className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 flex items-center space-x-2 text-sm"
                   >
                     <Reply className="h-4 w-4" />
                     <span>Respond</span>
                   </button>
                 )}
-                {draft.status === "APPROVED" && (
+                {canAcceptDraft(draft) && (
                   <button
-                    onClick={() => handleMarkAsFinal(draft.id)}
-                    disabled={markingFinal === draft.id}
+                    onClick={() => handleAcceptDraft(draft.id)}
+                    disabled={acceptingDraft === draft.id}
                     className="bg-purple-600 text-white px-3 py-1 rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2 text-sm"
                   >
-                    {markingFinal === draft.id ? (
+                    {acceptingDraft === draft.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <CheckCircle className="h-4 w-4" />
                     )}
-                    <span>{markingFinal === draft.id ? "Marking..." : "Mark as Final"}</span>
+                    <span>{acceptingDraft === draft.id ? "Accepting..." : "Accept as Final"}</span>
                   </button>
                 )}
               </div>
@@ -243,7 +264,9 @@ export default function DraftReports() {
       {showResponseForm && selectedDraft && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Respond to Draft</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Respond to Draft #{selectedDraft.draftNumber}
+            </h3>
             <form onSubmit={handleRespondToDraft} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

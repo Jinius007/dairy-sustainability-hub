@@ -26,9 +26,10 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        { userId: 'asc' },
+        { draftNumber: 'asc' }
+      ]
     });
 
     return NextResponse.json(drafts);
@@ -82,19 +83,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify the upload belongs to the specified user
+    if (upload.userId !== userId) {
+      return NextResponse.json(
+        { error: 'Upload does not belong to the specified user' },
+        { status: 403 }
+      );
+    }
+
     // Upload file to Vercel Blob
     const blob = await put(file.name, file, {
       access: 'public',
     });
 
-    // Get the next draft number for this user
+    // Get the next draft number for this user (should be odd number for admin drafts)
     const existingDrafts = await prisma.draft.findMany({
       where: { userId },
       orderBy: { draftNumber: 'desc' },
       take: 1
     });
 
-    const draftNumber = existingDrafts.length > 0 ? existingDrafts[0].draftNumber + 1 : 1;
+    let draftNumber = 1; // Start with draft 1
+    if (existingDrafts.length > 0) {
+      // Find the next odd number (admin drafts)
+      const lastDraftNumber = existingDrafts[0].draftNumber;
+      draftNumber = lastDraftNumber + 2; // Skip to next odd number
+      if (draftNumber % 2 === 0) {
+        draftNumber += 1; // Ensure it's odd
+      }
+    }
 
     // Create the draft
     const newDraft = await prisma.draft.create({
@@ -125,11 +142,11 @@ export async function POST(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: "CREATE_DRAFT",
-        details: `Created draft ${draftNumber} for user ${user.username}: ${file.name}`
+        details: `Created Draft ${draftNumber} for user ${user.username}: ${file.name}`
       }
     });
 
-    console.log('Draft created successfully:', {
+    console.log('Admin draft created successfully:', {
       draftId: newDraft.id,
       fileName: file.name,
       blobUrl: blob.url,
@@ -182,7 +199,7 @@ export async function PUT(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: "UPDATE_DRAFT",
-        details: `Updated draft ${updatedDraft.draftNumber} status to: ${status}`
+        details: `Updated Draft ${updatedDraft.draftNumber} status to: ${status}`
       }
     });
 

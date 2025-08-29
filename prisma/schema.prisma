@@ -131,14 +131,17 @@ model Draft {
   id                  String     @id @default(cuid())
   userId              String
   uploadedTemplateId  String?
-  draftNumber         Int
-  draftType           DraftType
+  draftNumber         Int        // Sequential draft number (1, 2, 3, 4, etc.)
+  draftType           DraftType  // ADMIN or USER
   fileName            String
   fileUrl             String
   fileSize            Int
   financialYear       String
   isFinal             Boolean    @default(false)
-  status              String     @default("DRAFT")
+  status              String     @default("PENDING_REVIEW")
+  acceptedAsFinal     Boolean    @default(false) // Track if this draft was accepted as final
+  acceptedBy          String?    // Who accepted it (admin or user ID)
+  acceptedAt          DateTime?  // When it was accepted
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 

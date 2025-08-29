@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const drafts = await prisma.draft.findMany({
       where: { userId: session.user.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { draftNumber: 'asc' },
       include: {
         user: {
           select: {
@@ -92,14 +92,22 @@ export async function POST(request: NextRequest) {
       access: 'public',
     });
 
-    // Get the next draft number for this upload
+    // Get the next draft number for this user (should be even number for user responses)
     const existingDrafts = await prisma.draft.findMany({
       where: { userId: session.user.id },
       orderBy: { draftNumber: 'desc' },
       take: 1
     });
 
-    const draftNumber = existingDrafts.length > 0 ? existingDrafts[0].draftNumber + 1 : 1;
+    let draftNumber = 2; // Start with draft 2 (user response to draft 1)
+    if (existingDrafts.length > 0) {
+      // Find the next even number (user response drafts)
+      const lastDraftNumber = existingDrafts[0].draftNumber;
+      draftNumber = lastDraftNumber + 2; // Skip to next even number
+      if (draftNumber % 2 === 1) {
+        draftNumber += 1; // Ensure it's even
+      }
+    }
 
     // Create the draft
     const newDraft = await prisma.draft.create({
@@ -130,7 +138,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: "CREATE_DRAFT",
-        details: `Created draft response ${draftNumber} for upload: ${upload.fileName}`
+        details: `Created Draft ${draftNumber} response: ${file.name}`
       }
     });
 
@@ -206,7 +214,7 @@ export async function PUT(request: NextRequest) {
       data: {
         userId: session.user.id,
         action: "UPDATE_DRAFT",
-        details: `Updated draft ${draft.draftNumber} status to: ${status}`
+        details: `Updated Draft ${draft.draftNumber} status to: ${status}`
       }
     });
 
