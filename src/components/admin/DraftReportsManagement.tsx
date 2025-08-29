@@ -101,22 +101,13 @@ export default function DraftReportsManagement() {
 
   const handleCreateDraft = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !selectedUser || !selectedUpload) return;
-
-    console.log('Creating draft with data:', {
-      fileName: selectedFile.name,
-      fileSize: selectedFile.size,
-      userId: selectedUser,
-      uploadId: selectedUpload,
-      comments: comments
-    });
+    if (!selectedFile || !selectedUser) return;
 
     setCreatingDraft(true);
     const formData = new FormData();
     formData.append("file", selectedFile);
     formData.append("userId", selectedUser);
-    formData.append("uploadId", selectedUpload);
-    formData.append("comments", comments);
+    formData.append("financialYear", new Date().getFullYear().toString() + "-" + (new Date().getFullYear() + 1).toString().slice(-2));
 
     try {
       const response = await fetch("/api/admin/drafts", {
@@ -124,28 +115,20 @@ export default function DraftReportsManagement() {
         body: formData,
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
       if (response.ok) {
         setShowCreateForm(false);
         setSelectedFile(null);
-        setComments("");
         setSelectedUser("");
-        setSelectedUpload("");
+        setComments("");
         fetchDrafts(); // Refresh the list
         alert("Draft created successfully!");
       } else {
-        // Get the error details from the response
         const errorData = await response.json();
-        console.log('Error response:', errorData);
-        const errorMessage = errorData.error || 'Unknown error occurred';
-        const errorDetails = errorData.details || '';
-        alert(`Error creating draft: ${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`);
+        alert(`Error creating draft: ${errorData.error || 'Please try again.'}`);
       }
     } catch (error) {
       console.error("Error creating draft:", error);
-      alert(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert("Error creating draft. Please try again.");
     } finally {
       setCreatingDraft(false);
     }

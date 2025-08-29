@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create a new draft response (user responding to admin draft)
+// POST - Create a new user draft (even numbers: 2, 4, 6, 8...)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -54,35 +54,12 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const uploadId = formData.get("uploadId") as string;
-    const comments = formData.get("comments") as string;
+    const financialYear = formData.get("financialYear") as string;
 
-    if (!file || !uploadId) {
+    if (!file || !financialYear) {
       return NextResponse.json(
-        { error: "File and upload ID are required" },
+        { error: "File and financial year are required" },
         { status: 400 }
-      );
-    }
-
-    // Get the upload to verify it belongs to the user
-    const upload = await prisma.upload.findUnique({
-      where: { id: uploadId },
-      include: {
-        user: true
-      }
-    });
-
-    if (!upload) {
-      return NextResponse.json(
-        { error: "Upload not found" },
-        { status: 404 }
-      );
-    }
-
-    if (upload.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Access denied - you can only respond to your own uploads" },
-        { status: 403 }
       );
     }
 
@@ -91,24 +68,22 @@ export async function POST(request: NextRequest) {
       access: 'public',
     });
 
-    // Get the next draft number for this user (should be even number for user responses)
+    // Get the next even draft number for this user (2, 4, 6, 8...)
     const existingDrafts = await prisma.draft.findMany({
-      where: { userId: session.user.id },
+      where: { 
+        userId: session.user.id,
+        draftType: "USER" // Only count user drafts
+      },
       orderBy: { draftNumber: 'desc' },
       take: 1
     });
 
-    let draftNumber = 2; // Start with draft 2 (user response to draft 1)
+    let draftNumber = 2; // Start with draft 2 for user
     if (existingDrafts.length > 0) {
-      // Find the next even number (user response drafts)
-      const lastDraftNumber = existingDrafts[0].draftNumber;
-      draftNumber = lastDraftNumber + 2; // Skip to next even number
-      if (draftNumber % 2 === 1) {
-        draftNumber += 1; // Ensure it's even
-      }
+      draftNumber = existingDrafts[0].draftNumber + 2; // Next even number
     }
 
-    // Create the draft
+    // Create the user draft
     const newDraft = await prisma.draft.create({
       data: {
         userId: session.user.id,
@@ -117,9 +92,8 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         fileUrl: blob.url,
         fileSize: file.size,
-        financialYear: upload.financialYear,
-        status: "PENDING_REVIEW",
-        uploadedTemplateId: upload.templateId
+        financialYear,
+        status: "PENDING_REVIEW"
       },
       include: {
         user: {
@@ -132,18 +106,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Log activity - temporarily commented out to debug
-    /*
-    await prisma.activityLog.create({
-      data: {
-        userId: session.user.id,
-        action: "CREATE_DRAFT",
-        details: `Created Draft ${draftNumber} response: ${file.name}`
-      }
-    });
-    */
-
-    console.log('User draft response created successfully:', {
+    console.log('User draft created successfully:', {
       draftId: newDraft.id,
       fileName: file.name,
       blobUrl: blob.url,
@@ -153,13 +116,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(newDraft, { status: 201 });
   } catch (error) {
-    console.error("Error creating draft response:", error);
+    console.error("Error creating user draft:", error);
     console.error("Error details:", {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
     return NextResponse.json(
-      { error: "Failed to create draft response", details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: "Failed to create user draft", details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -177,7 +140,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { id, status, comments } = await request.json();
+    const { id, status } = await request.json();
 
     if (!id || !status) {
       return NextResponse.json(
@@ -213,17 +176,6 @@ export async function PUT(request: NextRequest) {
         updatedAt: new Date()
       }
     });
-
-    // Log activity - temporarily commented out to debug
-    /*
-    await prisma.activityLog.create({
-      data: {
-        userId: session.user.id,
-        action: "UPDATE_DRAFT",
-        details: `Updated Draft ${draft.draftNumber} status to: ${status}`
-      }
-    });
-    */
 
     console.log(`User updated draft ${id} status to: ${status}`);
 

@@ -55,102 +55,60 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const userId = formData.get('userId') as string;
-    const uploadId = formData.get('uploadId') as string;
-    const comments = formData.get('comments') as string;
+    const file = formData.get("file") as File;
+    const userId = formData.get("userId") as string;
+    const financialYear = formData.get("financialYear") as string;
 
-    console.log('Admin draft creation attempt:', {
-      fileName: file?.name,
-      userId,
-      uploadId,
-      comments
-    });
-
-    if (!file || !userId || !uploadId) {
-      console.log('Missing required fields:', { file: !!file, userId: !!userId, uploadId: !!uploadId });
+    if (!file || !userId || !financialYear) {
       return NextResponse.json(
-        { error: 'File, user ID, and upload ID are required' },
+        { error: 'File, user ID, and financial year are required' },
         { status: 400 }
       );
     }
 
-    // Get user and upload to verify they exist
-    const [user, upload] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId } }),
-      prisma.upload.findUnique({ 
-        where: { id: uploadId }
-      })
-    ]);
-
-    console.log('Database lookup results:', {
-      userFound: !!user,
-      uploadFound: !!upload,
-      uploadUserId: upload?.userId,
-      requestedUserId: userId
+    // Verify the user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
     });
 
-    if (!user || !upload) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'User or upload not found' },
+        { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Verify the upload belongs to the specified user
-    if (upload.userId !== userId) {
-      console.log('Upload ownership mismatch:', {
-        uploadUserId: upload.userId,
-        requestedUserId: userId
-      });
-      return NextResponse.json(
-        { error: 'Upload does not belong to the specified user' },
-        { status: 403 }
-      );
-    }
-
     // Upload file to Vercel Blob
-    console.log('Uploading file to Vercel Blob...');
     const blob = await put(file.name, file, {
       access: 'public',
     });
-    console.log('File uploaded successfully:', blob.url);
 
-    // Get the next draft number for this user (should be odd number for admin drafts)
+    // Get the next odd draft number for this user (1, 3, 5, 7...)
     const existingDrafts = await prisma.draft.findMany({
-      where: { userId },
+      where: { 
+        userId: userId,
+        draftType: "ADMIN" // Only count admin drafts
+      },
       orderBy: { draftNumber: 'desc' },
       take: 1
     });
 
-    let draftNumber = 1; // Start with draft 1
+    let draftNumber = 1; // Start with draft 1 for admin
     if (existingDrafts.length > 0) {
-      // Find the next odd number (admin drafts)
-      const lastDraftNumber = existingDrafts[0].draftNumber;
-      draftNumber = lastDraftNumber + 2; // Skip to next odd number
-      if (draftNumber % 2 === 0) {
-        draftNumber += 1; // Ensure it's odd
-      }
+      draftNumber = existingDrafts[0].draftNumber + 2; // Next odd number
     }
 
-    console.log('Draft number calculation:', {
-      existingDraftsCount: existingDrafts.length,
-      calculatedDraftNumber: draftNumber
-    });
-
     // Create the draft
-    console.log('Creating draft in database...');
     const newDraft = await prisma.draft.create({
       data: {
-        userId,
+        userId: userId,
         draftNumber,
         draftType: "ADMIN",
         fileName: file.name,
         fileUrl: blob.url,
         fileSize: file.size,
-        financialYear: upload.financialYear,
-        status: "PENDING_REVIEW",
-        uploadedTemplateId: upload.templateId
+        financialYear,
+        status: "PENDING_REVIEW"
       },
       include: {
         user: {
@@ -162,22 +120,6 @@ export async function POST(request: NextRequest) {
         }
       }
     });
-
-    console.log('Draft created successfully:', {
-      draftId: newDraft.id,
-      draftNumber: newDraft.draftNumber
-    });
-
-    // Log activity - temporarily commented out to debug
-    /*
-    await prisma.activityLog.create({
-      data: {
-        userId: session.user.id,
-        action: "CREATE_DRAFT",
-        details: `Created Draft ${draftNumber} for user ${user.username}: ${file.name}`
-      }
-    });
-    */
 
     console.log('Admin draft created successfully:', {
       draftId: newDraft.id,
