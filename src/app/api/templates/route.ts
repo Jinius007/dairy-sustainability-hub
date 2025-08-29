@@ -2,14 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { put } from '@vercel/blob';
-import { getAllTemplates, addMockTemplate, updateMockTemplate, deleteMockTemplate } from '@/lib/mock-templates';
+import { getAllTemplates, addMockTemplate, updateMockTemplate, deleteMockTemplate, replaceMockTemplate, getTemplateHistory } from '@/lib/mock-templates';
 
 // GET - Get all active templates (for users to download)
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Return all active templates from shared storage
-    const templates = getAllTemplates();
-    return NextResponse.json(templates);
+    const { searchParams } = new URL(request.url);
+    const financialYear = searchParams.get('financialYear');
+    const includeHistory = searchParams.get('includeHistory') === 'true';
+    
+    if (includeHistory && financialYear) {
+      // Return template history for admin view
+      const templates = getTemplateHistory(financialYear);
+      return NextResponse.json(templates);
+    } else {
+      // Return only active templates for users
+      const templates = getAllTemplates();
+      return NextResponse.json(templates);
+    }
   } catch (error) {
     console.error('Error fetching templates:', error);
     return NextResponse.json(
@@ -36,6 +46,8 @@ export async function POST(request: NextRequest) {
     const name = formData.get('name') as string;
     const financialYear = formData.get('financialYear') as string;
     const description = formData.get('description') as string;
+    const replaceExisting = formData.get('replaceExisting') === 'true';
+    const existingTemplateId = formData.get('existingTemplateId') as string;
 
     if (!file || !name || !financialYear) {
       return NextResponse.json(
@@ -57,26 +69,41 @@ export async function POST(request: NextRequest) {
       access: 'public',
     });
 
-    // Create template object and add to shared storage
-    const template = {
+    // Create template object
+    const templateData = {
       name,
       fileName: file.name,
       fileUrl: blob.url,
       fileSize: file.size,
       financialYear,
-      description,
+      description: description || `Template for ${financialYear}`,
       isActive: true,
       uploadedBy: session.user.id
     };
 
-    // Add to shared templates storage
-    const savedTemplate = addMockTemplate(template);
+    let savedTemplate;
+
+    if (replaceExisting && existingTemplateId) {
+      // Replace existing template (creates new version, deactivates old)
+      savedTemplate = replaceMockTemplate(existingTemplateId, templateData);
+      if (!savedTemplate) {
+        return NextResponse.json(
+          { error: 'Existing template not found' },
+          { status: 404 }
+        );
+      }
+    } else {
+      // Add new template
+      savedTemplate = addMockTemplate(templateData);
+    }
 
     console.log('Template uploaded successfully:', {
       templateId: savedTemplate.id,
       fileName: file.name,
       blobUrl: blob.url,
-      uploadedBy: session.user.username
+      uploadedBy: session.user.username,
+      version: savedTemplate.version,
+      action: replaceExisting ? 'replaced' : 'created'
     });
 
     return NextResponse.json(savedTemplate, { status: 201 });
@@ -89,7 +116,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - Update template
+// PUT - Update template metadata (creates new version)
 export async function PUT(request: NextRequest) {
   try {
     // Check authentication and admin role
@@ -110,7 +137,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update template using shared function
+    // Update template using shared function (creates new version)
     const updatedTemplate = updateMockTemplate(id, {
       name: name || undefined,
       description: description || undefined,
@@ -124,6 +151,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    console.log(`Template ${id} updated to version ${updatedTemplate.version}`);
+
     return NextResponse.json(updatedTemplate);
   } catch (error) {
     console.error('Error updating template:', error);
@@ -134,7 +163,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Delete template
+// DELETE - Delete template (soft delete - sets as inactive)
 export async function DELETE(request: NextRequest) {
   try {
     // Check authentication and admin role
@@ -156,7 +185,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete template using shared function
+    // Delete template using shared function (soft delete)
     const deletedTemplate = deleteMockTemplate(id);
     
     if (!deletedTemplate) {
@@ -165,6 +194,8 @@ export async function DELETE(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    console.log(`Template ${id} soft deleted (set as inactive)`);
 
     return NextResponse.json({ message: 'Template deleted successfully' });
   } catch (error) {

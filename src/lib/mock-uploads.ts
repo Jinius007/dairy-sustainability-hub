@@ -1,74 +1,87 @@
 // Shared mock uploads data
-export let mockUploads = [
-  // John's upload
-  {
-    id: "1",
-    fileName: "john-sustainability-2024.xlsx",
-    fileUrl: "https://hub-qfqjta6xl-sinjinis-projects.vercel.app/uploads/john-sustainability-2024.xlsx",
-    fileSize: 1536000,
-    financialYear: "2024",
-    status: "PENDING",
-    userId: "2", // John's ID
-    templateId: "1",
-    createdAt: new Date("2024-08-20"),
-    updatedAt: new Date("2024-08-20"),
-    user: {
-      id: "2",
-      name: "John Doe",
-      username: "john"
-    },
-    template: {
-      name: "ESG Sustainability Report Template 2024",
-      financialYear: "2024"
-    }
-  },
-  // Jane's upload
-  {
-    id: "2",
-    fileName: "jane-sustainability-2024.xlsx",
-    fileUrl: "https://hub-qfqjta6xl-sinjinis-projects.vercel.app/uploads/jane-sustainability-2024.xlsx",
-    fileSize: 2048000,
-    financialYear: "2024",
-    status: "APPROVED",
-    userId: "3", // Jane's ID
-    templateId: "1",
-    createdAt: new Date("2024-08-21"),
-    updatedAt: new Date("2024-08-21"),
-    user: {
-      id: "3",
-      name: "Jane Smith",
-      username: "jane"
-    },
-    template: {
-      name: "ESG Sustainability Report Template 2024",
-      financialYear: "2024"
-    }
-  }
-];
+import { getMockData, saveMockData, initializeMockStorage } from './mock-storage';
+
+// Initialize storage on module load
+if (typeof window !== 'undefined') {
+  initializeMockStorage();
+}
+
+// Type definitions
+interface Upload {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  financialYear: string;
+  status: string;
+  userId: string;
+  templateId: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    name: string;
+    username: string;
+  };
+  template: {
+    name: string;
+    financialYear: string;
+  };
+}
+
+// Get uploads from localStorage or use default
+let mockUploads: Upload[] = getMockData('UPLOADS');
+
+// Function to sync data to localStorage
+function syncToStorage() {
+  saveMockData('UPLOADS', mockUploads);
+}
 
 // Function to add new upload
-export function addMockUpload(upload: any) {
-  const newUpload = {
+export function addMockUpload(upload: Partial<Upload>): Upload {
+  const newUpload: Upload = {
     id: (mockUploads.length + 1).toString(),
-    ...upload,
-    createdAt: new Date(),
-    updatedAt: new Date()
+    fileName: "",
+    fileUrl: "",
+    fileSize: 0,
+    financialYear: "",
+    status: "PENDING",
+    userId: "",
+    templateId: "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    user: {
+      id: "",
+      name: "",
+      username: ""
+    },
+    template: {
+      name: "",
+      financialYear: ""
+    },
+    ...upload
   };
   mockUploads.push(newUpload);
+  syncToStorage();
   return newUpload;
 }
 
 // Function to get all uploads
-export function getAllUploads() {
+export function getAllUploads(): Upload[] {
+  // Refresh from localStorage in case it was updated elsewhere
+  mockUploads = getMockData('UPLOADS');
   return mockUploads;
 }
 
 // Function to update upload status
-export function updateUploadStatus(id: string, status: string) {
-  const uploadIndex = mockUploads.findIndex(upload => upload.id === id);
+export function updateUploadStatus(id: string, status: string): Upload | null {
+  // Refresh from localStorage
+  mockUploads = getMockData('UPLOADS');
+  const uploadIndex = mockUploads.findIndex((upload: Upload) => upload.id === id);
   if (uploadIndex !== -1) {
     mockUploads[uploadIndex].status = status;
-    mockUploads[uploadIndex].updatedAt = new Date();
+    mockUploads[uploadIndex].updatedAt = new Date().toISOString();
+    syncToStorage();
     return mockUploads[uploadIndex];
   }
   return null;

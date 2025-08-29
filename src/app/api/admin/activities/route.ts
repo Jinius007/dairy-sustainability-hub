@@ -1,42 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getAllActivityLogs, getActivityLogsByUserId, getFilteredActivityLogs, getActivityStats } from '@/lib/mock-activity-logs';
 
+// GET - Get activity logs (admin only)
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const username = searchParams.get('username');
+    const role = searchParams.get('role');
     const action = searchParams.get('action');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+    const includeStats = searchParams.get('includeStats') === 'true';
 
-    // Build where clause
-    const where: any = {};
-    if (userId) where.userId = userId;
-    if (action) where.action = action;
+    let logs;
 
-    const activities = await prisma.activityLog.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            name: true,
-            username: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
-    });
+    if (userId) {
+      // Get logs for specific user
+      logs = getActivityLogsByUserId(userId);
+    } else if (username || role || action || startDate || endDate) {
+      // Get filtered logs
+      logs = getFilteredActivityLogs({
+        username: username || undefined,
+        role: role || undefined,
+        action: action || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined
+      });
+    } else {
+      // Get all logs
+      logs = getAllActivityLogs();
+    }
 
-    return NextResponse.json(activities);
+    const response: any = { logs };
+
+    if (includeStats) {
+      const stats = getActivityStats(userId || undefined);
+      response.stats = stats;
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
-    console.error('Error fetching activities:', error);
+    console.error('Error fetching activity logs:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch activities' },
+      { error: 'Failed to fetch activity logs' },
       { status: 500 }
     );
   }
 }
+
 
 

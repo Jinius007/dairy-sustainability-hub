@@ -1,6 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { findUserByCredentials } from "./mock-users";
+import { findUserByCredentials, logUserLogin, logUserLogout } from "./mock-users";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,57 +15,58 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Use shared mock users for authentication
-        const user = findUserByCredentials(credentials.username, credentials.password);
-
-        if (user) {
-          return {
-            id: user.id,
-            name: user.name,
-            username: user.username,
-            role: user.role,
-          };
+        try {
+          const user = findUserByCredentials(credentials.username, credentials.password);
+          
+          if (user) {
+            // Log successful login
+            logUserLogin(user.id, user.username, user.role);
+            
+            return {
+              id: user.id,
+              name: user.name,
+              username: user.username,
+              role: user.role,
+            };
+          }
+          
+          return null;
+        } catch (error) {
+          console.error("Auth error:", error);
+          return null;
         }
-
-        return null;
       }
     })
   ],
-  session: {
-    strategy: "jwt"
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role;
+        token.id = user.id;
         token.username = user.username;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.sub!;
-        session.user.role = token.role as string;
+        session.user.id = token.id as string;
         session.user.username = token.username as string;
+        session.user.role = token.role as string;
       }
       return session;
+    },
+    async signOut({ token }) {
+      // Log logout when user signs out
+      if (token?.id && token?.username && token?.role) {
+        logUserLogout(token.id as string, token.username as string, token.role as string);
+      }
     }
   },
   pages: {
     signIn: "/auth/signin",
   },
-  secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development",
-  // Remove NEXTAUTH_URL requirement by using relative URLs
-  useSecureCookies: process.env.NODE_ENV === 'production',
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production'
-      }
-    }
-  }
+  session: {
+    strategy: "jwt",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 };

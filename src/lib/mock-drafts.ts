@@ -1,135 +1,155 @@
 // Shared mock drafts data for back-and-forth draft process
-export let mockDrafts = [
-  // Example draft from admin to user
-  {
-    id: "1",
-    draftNumber: 1,
-    draftType: "ADMIN_TO_USER", // or "USER_TO_ADMIN"
-    fileName: "john-draft-report-v1.docx",
-    fileUrl: "https://hub-hk1bvewws-sinjinis-projects.vercel.app/drafts/john-draft-report-v1.docx",
-    fileSize: 2048000,
-    financialYear: "2024",
-    status: "PENDING_REVIEW", // PENDING_REVIEW, APPROVED, REJECTED, FINAL
-    userId: "2", // John's ID
-    templateId: "1",
-    uploadId: "1", // Reference to original user upload
-    comments: "Initial draft based on your sustainability data. Please review and provide feedback.",
-    createdAt: new Date("2024-08-22"),
-    updatedAt: new Date("2024-08-22"),
-    user: {
-      id: "2",
-      name: "John Doe",
-      username: "john"
-    },
-    template: {
-      name: "ESG Sustainability Report Template 2024",
-      financialYear: "2024"
-    },
-    originalUpload: {
-      fileName: "john-sustainability-2024.xlsx",
-      uploadedAt: new Date("2024-08-20")
-    }
-  },
-  // Example user response to admin draft
-  {
-    id: "2",
-    draftNumber: 2,
-    draftType: "USER_TO_ADMIN",
-    fileName: "john-draft-response-v2.docx",
-    fileUrl: "https://hub-hk1bvewws-sinjinis-projects.vercel.app/drafts/john-draft-response-v2.docx",
-    fileSize: 2150400,
-    financialYear: "2024",
-    status: "PENDING_REVIEW",
-    userId: "2", // John's ID
-    templateId: "1",
-    uploadId: "1", // Reference to original user upload
-    comments: "Updated sections 3 and 5 as requested. Please review the changes.",
-    createdAt: new Date("2024-08-23"),
-    updatedAt: new Date("2024-08-23"),
-    user: {
-      id: "2",
-      name: "John Doe",
-      username: "john"
-    },
-    template: {
-      name: "ESG Sustainability Report Template 2024",
-      financialYear: "2024"
-    },
-    originalUpload: {
-      fileName: "john-sustainability-2024.xlsx",
-      uploadedAt: new Date("2024-08-20")
-    }
-  }
-];
+import { getMockData, saveMockData, initializeMockStorage } from './mock-storage';
+
+// Initialize storage on module load
+if (typeof window !== 'undefined') {
+  initializeMockStorage();
+}
+
+// Type definitions
+interface Draft {
+  id: string;
+  draftNumber: number;
+  draftType: "ADMIN_TO_USER" | "USER_TO_ADMIN";
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  financialYear: string;
+  status: string;
+  userId: string;
+  templateId: string;
+  uploadId: string;
+  comments: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    name: string;
+    username: string;
+  };
+  template: {
+    name: string;
+    financialYear: string;
+  };
+  originalUpload: {
+    fileName: string;
+    uploadedAt: string;
+  };
+}
+
+// Get drafts from localStorage or use default
+let mockDrafts: Draft[] = getMockData('DRAFTS');
+
+// Function to sync data to localStorage
+function syncToStorage() {
+  saveMockData('DRAFTS', mockDrafts);
+}
 
 // Function to add new draft
-export function addMockDraft(draft: any) {
-  const newDraft = {
+export function addMockDraft(draft: Partial<Draft>): Draft {
+  const newDraft: Draft = {
     id: (mockDrafts.length + 1).toString(),
-    ...draft,
-    createdAt: new Date(),
-    updatedAt: new Date()
+    draftNumber: 1,
+    draftType: "ADMIN_TO_USER",
+    fileName: "",
+    fileUrl: "",
+    fileSize: 0,
+    financialYear: "",
+    status: "PENDING_REVIEW",
+    userId: "",
+    templateId: "",
+    uploadId: "",
+    comments: "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    user: {
+      id: "",
+      name: "",
+      username: ""
+    },
+    template: {
+      name: "",
+      financialYear: ""
+    },
+    originalUpload: {
+      fileName: "",
+      uploadedAt: new Date().toISOString()
+    },
+    ...draft
   };
   mockDrafts.push(newDraft);
+  syncToStorage();
   return newDraft;
 }
 
 // Function to get all drafts
-export function getAllDrafts() {
+export function getAllDrafts(): Draft[] {
+  // Refresh from localStorage in case it was updated elsewhere
+  mockDrafts = getMockData('DRAFTS');
   return mockDrafts;
 }
 
 // Function to get drafts by user ID
-export function getDraftsByUserId(userId: string) {
-  return mockDrafts.filter(draft => draft.userId === userId);
+export function getDraftsByUserId(userId: string): Draft[] {
+  // Refresh from localStorage
+  mockDrafts = getMockData('DRAFTS');
+  return mockDrafts.filter((draft: Draft) => draft.userId === userId);
 }
 
 // Function to get drafts by upload ID (to see all drafts related to one user upload)
-export function getDraftsByUploadId(uploadId: string) {
-  return mockDrafts.filter(draft => draft.uploadId === uploadId);
+export function getDraftsByUploadId(uploadId: string): Draft[] {
+  // Refresh from localStorage
+  mockDrafts = getMockData('DRAFTS');
+  return mockDrafts.filter((draft: Draft) => draft.uploadId === uploadId);
 }
 
 // Function to update draft status
-export function updateDraftStatus(id: string, status: string, comments?: string) {
-  const draftIndex = mockDrafts.findIndex(draft => draft.id === id);
+export function updateDraftStatus(id: string, status: string, comments?: string): Draft | null {
+  // Refresh from localStorage
+  mockDrafts = getMockData('DRAFTS');
+  const draftIndex = mockDrafts.findIndex((draft: Draft) => draft.id === id);
   if (draftIndex !== -1) {
     mockDrafts[draftIndex].status = status;
-    mockDrafts[draftIndex].updatedAt = new Date();
+    mockDrafts[draftIndex].updatedAt = new Date().toISOString();
     if (comments) {
       mockDrafts[draftIndex].comments = comments;
     }
+    syncToStorage();
     return mockDrafts[draftIndex];
   }
   return null;
 }
 
 // Function to mark draft as final
-export function markDraftAsFinal(id: string) {
-  const draftIndex = mockDrafts.findIndex(draft => draft.id === id);
+export function markDraftAsFinal(id: string): Draft | null {
+  // Refresh from localStorage
+  mockDrafts = getMockData('DRAFTS');
+  const draftIndex = mockDrafts.findIndex((draft: Draft) => draft.id === id);
   if (draftIndex !== -1) {
     mockDrafts[draftIndex].status = "FINAL";
-    mockDrafts[draftIndex].updatedAt = new Date();
+    mockDrafts[draftIndex].updatedAt = new Date().toISOString();
+    syncToStorage();
     return mockDrafts[draftIndex];
   }
   return null;
 }
 
 // Function to get next draft number for a user
-export function getNextDraftNumber(userId: string) {
+export function getNextDraftNumber(userId: string): number {
   const userDrafts = getDraftsByUserId(userId);
   if (userDrafts.length === 0) return 1;
-  return Math.max(...userDrafts.map(d => d.draftNumber)) + 1;
+  return Math.max(...userDrafts.map((d: Draft) => d.draftNumber)) + 1;
 }
 
 // Function to get next draft number for a specific upload (to maintain sequence)
-export function getNextDraftNumberForUpload(uploadId: string) {
+export function getNextDraftNumberForUpload(uploadId: string): number {
   const uploadDrafts = getDraftsByUploadId(uploadId);
   if (uploadDrafts.length === 0) return 1;
-  return Math.max(...uploadDrafts.map(d => d.draftNumber)) + 1;
+  return Math.max(...uploadDrafts.map((d: Draft) => d.draftNumber)) + 1;
 }
 
 // Function to check if a draft can be marked as final (only recipient can mark as final)
-export function canMarkAsFinal(draft: any, currentUserId?: string) {
+export function canMarkAsFinal(draft: Draft, currentUserId?: string): boolean {
   // Only recipient can mark as final
   if (draft.draftType === "USER_TO_ADMIN") {
     // User sent to admin - only admin can mark as final

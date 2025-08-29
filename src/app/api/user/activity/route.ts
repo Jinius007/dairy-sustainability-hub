@@ -1,37 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getActivityLogsByUserId, getFilteredActivityLogs } from '@/lib/mock-activity-logs';
 
+// GET - Get user's own activity logs
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const limit = parseInt(searchParams.get('limit') || '20');
-
-    if (!userId) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    const activities = await prisma.activityLog.findMany({
-      where: {
-        userId,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
-    });
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+    const resourceType = searchParams.get('resourceType');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
-    return NextResponse.json(activities);
+    let logs;
+
+    if (action || resourceType || startDate || endDate) {
+      // Get filtered logs for the current user
+      logs = getFilteredActivityLogs({
+        userId: session.user.id,
+        action: action || undefined,
+        resourceType: resourceType || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined
+      });
+    } else {
+      // Get all logs for the current user
+      logs = getActivityLogsByUserId(session.user.id);
+    }
+
+    return NextResponse.json(logs);
   } catch (error) {
-    console.error('Error fetching user activities:', error);
+    console.error('Error fetching user activity logs:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch user activities' },
+      { error: 'Failed to fetch activity logs' },
       { status: 500 }
     );
   }
 }
+
 
 

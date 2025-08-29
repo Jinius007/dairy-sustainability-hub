@@ -1,62 +1,164 @@
 // Shared mock templates data
-export let mockTemplates = [
-  {
-    id: "1",
-    name: "ESG Sustainability Report Template 2024",
-    fileName: "esg-sustainability-template-2024.xlsx",
-    fileUrl: "https://hub-qfqjta6xl-sinjinis-projects.vercel.app/templates/esg-sustainability-template-2024.xlsx",
-    fileSize: 1024000,
-    financialYear: "2024",
-    description: "Comprehensive ESG (Environmental, Social, Governance) sustainability reporting template for 2024",
-    isActive: true,
-    uploadedBy: "1", // Admin's ID
-    createdAt: new Date("2024-01-01"),
-    updatedAt: new Date("2024-01-01")
-  }
-];
+import { getMockData, saveMockData, initializeMockStorage } from './mock-storage';
+
+// Initialize storage on module load
+if (typeof window !== 'undefined') {
+  initializeMockStorage();
+}
+
+// Type definitions
+interface Template {
+  id: string;
+  name: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  financialYear: string;
+  description: string;
+  isActive: boolean;
+  uploadedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  previousVersionId?: string; // Reference to the previous version that was deactivated
+}
+
+// Get templates from localStorage or use default
+let mockTemplates: Template[] = getMockData('TEMPLATES');
+
+// Function to sync data to localStorage
+function syncToStorage() {
+  saveMockData('TEMPLATES', mockTemplates);
+}
 
 // Function to add new template
-export function addMockTemplate(template: any) {
-  const newTemplate = {
+export function addMockTemplate(template: Partial<Template>): Template {
+  const newTemplate: Template = {
     id: (mockTemplates.length + 1).toString(),
-    ...template,
-    createdAt: new Date(),
-    updatedAt: new Date()
+    name: "",
+    fileName: "",
+    fileUrl: "",
+    fileSize: 0,
+    financialYear: "",
+    description: "",
+    isActive: true,
+    uploadedBy: "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    version: 1,
+    ...template
   };
   mockTemplates.push(newTemplate);
+  syncToStorage();
   return newTemplate;
 }
 
 // Function to get all active templates
-export function getAllTemplates() {
+export function getAllTemplates(): Template[] {
+  // Refresh from localStorage in case it was updated elsewhere
+  mockTemplates = getMockData('TEMPLATES');
   return mockTemplates.filter(template => template.isActive);
 }
 
 // Function to get template by ID
-export function getTemplateById(id: string) {
+export function getTemplateById(id: string): Template | undefined {
+  // Refresh from localStorage
+  mockTemplates = getMockData('TEMPLATES');
   return mockTemplates.find(template => template.id === id);
 }
 
-// Function to update template
-export function updateMockTemplate(id: string, updates: any) {
+// Function to update template (creates new version and deactivates old one)
+export function updateMockTemplate(id: string, updates: Partial<Template>): Template | null {
+  // Refresh from localStorage
+  mockTemplates = getMockData('TEMPLATES');
+  const templateIndex = mockTemplates.findIndex(template => template.id === id);
+  
+  if (templateIndex !== -1) {
+    const oldTemplate = mockTemplates[templateIndex];
+    
+    // Deactivate the old template
+    mockTemplates[templateIndex].isActive = false;
+    mockTemplates[templateIndex].updatedAt = new Date().toISOString();
+    
+    // Create new version of the template
+    const newTemplate: Template = {
+      ...oldTemplate,
+      id: (mockTemplates.length + 1).toString(),
+      version: oldTemplate.version + 1,
+      previousVersionId: oldTemplate.id,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...updates
+    };
+    
+    mockTemplates.push(newTemplate);
+    syncToStorage();
+    return newTemplate;
+  }
+  return null;
+}
+
+// Function to replace template (for file updates)
+export function replaceMockTemplate(id: string, newFileData: Partial<Template>): Template | null {
+  // Refresh from localStorage
+  mockTemplates = getMockData('TEMPLATES');
+  const templateIndex = mockTemplates.findIndex(template => template.id === id);
+  
+  if (templateIndex !== -1) {
+    const oldTemplate = mockTemplates[templateIndex];
+    
+    // Deactivate the old template
+    mockTemplates[templateIndex].isActive = false;
+    mockTemplates[templateIndex].updatedAt = new Date().toISOString();
+    
+    // Create new version with updated file data
+    const newTemplate: Template = {
+      ...oldTemplate,
+      id: (mockTemplates.length + 1).toString(),
+      version: oldTemplate.version + 1,
+      previousVersionId: oldTemplate.id,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...newFileData
+    };
+    
+    mockTemplates.push(newTemplate);
+    syncToStorage();
+    return newTemplate;
+  }
+  return null;
+}
+
+// Function to delete template (soft delete - sets as inactive)
+export function deleteMockTemplate(id: string): Template | null {
+  // Refresh from localStorage
+  mockTemplates = getMockData('TEMPLATES');
   const templateIndex = mockTemplates.findIndex(template => template.id === id);
   if (templateIndex !== -1) {
-    mockTemplates[templateIndex] = {
-      ...mockTemplates[templateIndex],
-      ...updates,
-      updatedAt: new Date()
-    };
+    mockTemplates[templateIndex].isActive = false;
+    mockTemplates[templateIndex].updatedAt = new Date().toISOString();
+    syncToStorage();
     return mockTemplates[templateIndex];
   }
   return null;
 }
 
-// Function to delete template
-export function deleteMockTemplate(id: string) {
-  const templateIndex = mockTemplates.findIndex(template => template.id === id);
-  if (templateIndex !== -1) {
-    const deletedTemplate = mockTemplates.splice(templateIndex, 1)[0];
-    return deletedTemplate;
-  }
-  return null;
+// Function to get template history (all versions including inactive)
+export function getTemplateHistory(financialYear: string): Template[] {
+  // Refresh from localStorage
+  mockTemplates = getMockData('TEMPLATES');
+  return mockTemplates
+    .filter(template => template.financialYear === financialYear)
+    .sort((a, b) => b.version - a.version);
+}
+
+// Function to get latest active template for a financial year
+export function getLatestActiveTemplate(financialYear: string): Template | undefined {
+  // Refresh from localStorage
+  mockTemplates = getMockData('TEMPLATES');
+  return mockTemplates
+    .filter(template => template.financialYear === financialYear && template.isActive)
+    .sort((a, b) => b.version - a.version)[0];
 }

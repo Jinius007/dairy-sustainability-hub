@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { mockUsers, addMockUser, getAllUsers } from '@/lib/mock-users';
+import { getAllUsers, addMockUser, deleteMockUser, logUserAction } from '@/lib/mock-users';
 
 // GET - Get all users (admin only)
 export async function GET(request: NextRequest) {
@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(getAllUsers());
+    const users = getAllUsers();
+    return NextResponse.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json(
@@ -37,37 +38,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, username, role, password } = await request.json();
+    const { name, username, password, role } = await request.json();
 
-    if (!name || !username || !role || !password) {
+    if (!name || !username || !password || !role) {
       return NextResponse.json(
-        { error: 'Name, username, role, and password are required' },
+        { error: 'Name, username, password, and role are required' },
         { status: 400 }
       );
     }
 
-    // Check if username already exists
-    const existingUser = mockUsers.find(user => user.username === username);
-    if (existingUser) {
+    // Validate role
+    if (!['USER', 'ADMIN'].includes(role.toUpperCase())) {
       return NextResponse.json(
-        { error: 'Username already exists' },
+        { error: 'Role must be either USER or ADMIN' },
         { status: 400 }
       );
     }
 
-    // Create new user using shared function
-    const newUser = addMockUser({ name, username, password, role });
+    try {
+      const newUser = addMockUser({
+        name,
+        username,
+        password,
+        role: role.toUpperCase()
+      });
 
-    console.log('New user created:', {
-      id: newUser.id,
-      name: newUser.name,
-      username: newUser.username,
-      role: newUser.role
-    });
+      // Log the user creation
+      logUserAction(
+        session.user.id,
+        session.user.username || 'admin',
+        session.user.role,
+        'CREATE',
+        newUser.id,
+        username,
+        `Created new ${role.toLowerCase()} account`
+      );
 
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = newUser;
-    return NextResponse.json(userWithoutPassword, { status: 201 });
+      console.log('User created successfully:', {
+        userId: newUser.id,
+        username: newUser.username,
+        role: newUser.role,
+        createdBy: session.user.username
+      });
+
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = newUser;
+      return NextResponse.json(userWithoutPassword, { status: 201 });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Username already exists') {
+        return NextResponse.json(
+          { error: 'Username already exists' },
+          { status: 409 }
+        );
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json(
@@ -125,7 +150,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Delete user (mock implementation)
+// DELETE - Delete user (admin only)
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -147,22 +172,41 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Find user in mock data
-    const userIndex = mockUsers.findIndex(user => user.id === id);
-    if (userIndex === -1) {
+    // Prevent admin from deleting themselves
+    if (id === session.user.id) {
+      return NextResponse.json(
+        { error: 'Cannot delete your own account' },
+        { status: 400 }
+      );
+    }
+
+    const deletedUser = deleteMockUser(id);
+    
+    if (!deletedUser) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Delete user from mock data
-    const deletedUser = mockUsers.splice(userIndex, 1)[0];
+    // Log the user deletion
+    logUserAction(
+      session.user.id,
+      session.user.username || 'admin',
+      session.user.role,
+      'DELETE',
+      id,
+      deletedUser.username,
+      `Deleted user account`
+    );
 
-    return NextResponse.json({ 
-      message: 'User deleted successfully',
-      deletedUser: { name: deletedUser.name, username: deletedUser.username }
+    console.log('User deleted successfully:', {
+      deletedUserId: id,
+      deletedUsername: deletedUser.username,
+      deletedBy: session.user.username
     });
+
+    return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
     return NextResponse.json(
