@@ -55,7 +55,8 @@ export async function PUT(
       }
     });
 
-    // Log activity
+    // Log activity - temporarily commented out to debug
+    /*
     await prisma.activityLog.create({
       data: {
         userId: session.user.id,
@@ -63,6 +64,7 @@ export async function PUT(
         details: `Marked draft ${draft.draftNumber} as final: ${draft.fileName}`
       }
     });
+    */
 
     console.log(`User ${session.user.username} marked draft ${id} as final`);
 

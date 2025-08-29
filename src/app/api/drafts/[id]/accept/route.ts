@@ -57,7 +57,8 @@ export async function POST(
       }
     });
 
-    // Log activity
+    // Log activity - temporarily commented out to debug
+    /*
     await prisma.activityLog.create({
       data: {
         userId: session.user.id,
@@ -65,6 +66,7 @@ export async function POST(
         details: `Accepted Draft ${draft.draftNumber} as final: ${draft.fileName}`
       }
     });
+    */
 
     console.log(`User ${session.user.username} accepted draft ${draftId} as final`);
 
