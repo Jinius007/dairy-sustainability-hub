@@ -133,7 +133,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Log activity
+    // Log activity - temporarily commented out to debug
+    /*
     await prisma.activityLog.create({
       data: {
         userId: session.user.id,
@@ -141,6 +142,7 @@ export async function POST(request: NextRequest) {
         details: `Created Draft ${draftNumber} response: ${file.name}`
       }
     });
+    */
 
     console.log('User draft response created successfully:', {
       draftId: newDraft.id,
