@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(request: NextRequest) {
+// GET - Run migration (can be called directly from browser)
+export async function GET(request: NextRequest) {
   try {
     console.log('🚀 Starting database migration...');
 
@@ -185,4 +186,9 @@ export async function POST(request: NextRequest) {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+// POST - Run migration (alternative method)
+export async function POST(request: NextRequest) {
+  return GET(request);
 }
