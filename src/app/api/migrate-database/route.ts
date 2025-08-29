@@ -6,22 +6,42 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🚀 Starting database migration...');
 
-    // SQL script to create all tables and enums
+    // SQL script to create all tables and enums - simplified version
     const migrationSQL = `
       -- CreateEnum
-      CREATE TYPE IF NOT EXISTS "UserRole" AS ENUM ('ADMIN', 'USER');
+      DO $$ BEGIN
+        CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'USER');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
 
       -- CreateEnum
-      CREATE TYPE IF NOT EXISTS "UploadStatus" AS ENUM ('PENDING', 'REVIEWED', 'APPROVED', 'REJECTED');
+      DO $$ BEGIN
+        CREATE TYPE "UploadStatus" AS ENUM ('PENDING', 'REVIEWED', 'APPROVED', 'REJECTED');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
 
       -- CreateEnum
-      CREATE TYPE IF NOT EXISTS "ReportStatus" AS ENUM ('DRAFT', 'GENERATED', 'PUBLISHED');
+      DO $$ BEGIN
+        CREATE TYPE "ReportStatus" AS ENUM ('DRAFT', 'GENERATED', 'PUBLISHED');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
 
       -- CreateEnum
-      CREATE TYPE IF NOT EXISTS "ActivityAction" AS ENUM ('LOGIN', 'LOGOUT', 'UPLOAD_TEMPLATE', 'DOWNLOAD_TEMPLATE', 'UPLOAD_DATA', 'DOWNLOAD_DATA', 'GENERATE_REPORT', 'DOWNLOAD_REPORT', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'CREATE_DRAFT', 'UPDATE_DRAFT', 'FINALIZE_DRAFT');
+      DO $$ BEGIN
+        CREATE TYPE "ActivityAction" AS ENUM ('LOGIN', 'LOGOUT', 'UPLOAD_TEMPLATE', 'DOWNLOAD_TEMPLATE', 'UPLOAD_DATA', 'DOWNLOAD_DATA', 'GENERATE_REPORT', 'DOWNLOAD_REPORT', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'CREATE_DRAFT', 'UPDATE_DRAFT', 'FINALIZE_DRAFT');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
 
       -- CreateEnum
-      CREATE TYPE IF NOT EXISTS "DraftType" AS ENUM ('ADMIN', 'USER');
+      DO $$ BEGIN
+        CREATE TYPE "DraftType" AS ENUM ('ADMIN', 'USER');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
 
       -- CreateTable
       CREATE TABLE IF NOT EXISTS "users" (
@@ -121,49 +141,6 @@ export async function GET(request: NextRequest) {
 
       -- CreateIndex
       CREATE UNIQUE INDEX IF NOT EXISTS "users_username_key" ON "users"("username");
-
-      -- AddForeignKey (only if they don't exist)
-      DO $$ 
-      BEGIN
-          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'uploads_userId_fkey') THEN
-              ALTER TABLE "uploads" ADD CONSTRAINT "uploads_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-          END IF;
-      END $$;
-
-      DO $$ 
-      BEGIN
-          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'uploads_templateId_fkey') THEN
-              ALTER TABLE "uploads" ADD CONSTRAINT "uploads_templateId_fkey" FOREIGN KEY ("templateId") REFERENCES "templates"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-          END IF;
-      END $$;
-
-      DO $$ 
-      BEGIN
-          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'reports_userId_fkey') THEN
-              ALTER TABLE "reports" ADD CONSTRAINT "reports_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-          END IF;
-      END $$;
-
-      DO $$ 
-      BEGIN
-          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'reports_uploadId_fkey') THEN
-              ALTER TABLE "reports" ADD CONSTRAINT "reports_uploadId_fkey" FOREIGN KEY ("uploadId") REFERENCES "uploads"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-          END IF;
-      END $$;
-
-      DO $$ 
-      BEGIN
-          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'drafts_userId_fkey') THEN
-              ALTER TABLE "drafts" ADD CONSTRAINT "drafts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-          END IF;
-      END $$;
-
-      DO $$ 
-      BEGIN
-          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'activity_logs_userId_fkey') THEN
-              ALTER TABLE "activity_logs" ADD CONSTRAINT "activity_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-          END IF;
-      END $$;
     `;
 
     // Execute the migration using Prisma's $executeRawUnsafe
