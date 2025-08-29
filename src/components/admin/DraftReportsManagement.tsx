@@ -103,6 +103,14 @@ export default function DraftReportsManagement() {
     e.preventDefault();
     if (!selectedFile || !selectedUser || !selectedUpload) return;
 
+    console.log('Creating draft with data:', {
+      fileName: selectedFile.name,
+      fileSize: selectedFile.size,
+      userId: selectedUser,
+      uploadId: selectedUpload,
+      comments: comments
+    });
+
     setCreatingDraft(true);
     const formData = new FormData();
     formData.append("file", selectedFile);
@@ -116,6 +124,9 @@ export default function DraftReportsManagement() {
         body: formData,
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (response.ok) {
         setShowCreateForm(false);
         setSelectedFile(null);
@@ -125,11 +136,16 @@ export default function DraftReportsManagement() {
         fetchDrafts(); // Refresh the list
         alert("Draft created successfully!");
       } else {
-        alert("Error creating draft. Please try again.");
+        // Get the error details from the response
+        const errorData = await response.json();
+        console.log('Error response:', errorData);
+        const errorMessage = errorData.error || 'Unknown error occurred';
+        const errorDetails = errorData.details || '';
+        alert(`Error creating draft: ${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`);
       }
     } catch (error) {
       console.error("Error creating draft:", error);
-      alert("Error creating draft. Please try again.");
+      alert(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setCreatingDraft(false);
     }
