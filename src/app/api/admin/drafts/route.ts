@@ -225,7 +225,8 @@ export async function PUT(request: NextRequest) {
       }
     });
 
-    // Log activity
+    // Log activity - temporarily commented out to debug
+    /*
     await prisma.activityLog.create({
       data: {
         userId: session.user.id,
@@ -233,6 +234,7 @@ export async function PUT(request: NextRequest) {
         details: `Updated Draft ${updatedDraft.draftNumber} status to: ${status}`
       }
     });
+    */
 
     console.log(`Admin updated draft ${id} status to: ${status}`);
 

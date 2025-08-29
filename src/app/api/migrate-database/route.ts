@@ -6,6 +6,16 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🚀 Starting database migration...');
 
+    // First, let's check what enum values exist
+    try {
+      const enumCheck = await prisma.$queryRaw`
+        SELECT unnest(enum_range(NULL::"ActivityAction")) as enum_value;
+      `;
+      console.log('Current ActivityAction enum values:', enumCheck);
+    } catch (e) {
+      console.log('Could not check enum values:', e);
+    }
+
     // Execute each command separately
     const commands = [
       // Create enums
