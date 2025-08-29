@@ -7,22 +7,18 @@ import { Loader2, Download, Eye, Upload, MessageSquare, Reply, FileText, CheckCi
 interface Draft {
   id: string;
   draftNumber: number;
-  draftType: "ADMIN_TO_USER" | "USER_TO_ADMIN";
+  draftType: "ADMIN" | "USER";
   fileName: string;
   fileUrl: string;
   fileSize: number;
   financialYear: string;
   status: string;
-  uploadId: string;
-  comments: string;
+  userId: string;
   createdAt: string;
-  template: {
+  user: {
+    id: string;
     name: string;
-    financialYear: string;
-  };
-  originalUpload: {
-    fileName: string;
-    uploadedAt: string;
+    username: string;
   };
 }
 
@@ -43,10 +39,10 @@ export default function DraftReports() {
 
   const fetchDrafts = async () => {
     try {
-      const response = await fetch("/api/user/dashboard");
+      const response = await fetch("/api/drafts");
       if (response.ok) {
         const data = await response.json();
-        setDrafts(data.userDrafts || []);
+        setDrafts(data);
       }
     } catch (error) {
       console.error("Error fetching drafts:", error);
@@ -62,7 +58,7 @@ export default function DraftReports() {
     setResponding(true);
     const formData = new FormData();
     formData.append("file", selectedFile);
-    formData.append("uploadId", selectedDraft.uploadId);
+    formData.append("uploadId", selectedDraft.id);
     formData.append("comments", comments);
 
     try {
@@ -118,13 +114,6 @@ export default function DraftReports() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
-
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -136,123 +125,162 @@ export default function DraftReports() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "APPROVED":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-green-100 text-green-800";
       case "REJECTED":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-red-100 text-red-800";
       case "FINAL":
-        return "bg-purple-100 text-purple-800 border-purple-200";
+        return "bg-purple-100 text-purple-800";
       default:
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-yellow-100 text-yellow-800";
     }
   };
 
   const getDraftTypeColor = (type: string) => {
-    return type === "ADMIN_TO_USER" 
-      ? "bg-blue-100 text-blue-800 border-blue-200" 
-      : "bg-orange-100 text-orange-800 border-orange-200";
-  };
-
-  const canRespondToDraft = (draft: Draft) => {
-    return draft.draftType === "ADMIN_TO_USER" && draft.status === "PENDING_REVIEW";
-  };
-
-  const canMarkAsFinal = (draft: Draft) => {
-    // Import the function from mock-drafts
-    const { canMarkAsFinal: checkCanMarkAsFinal } = require("@/lib/mock-drafts");
-    return checkCanMarkAsFinal(draft, session?.user?.id);
-  };
-
-  const sortedDrafts = drafts.sort((a, b) => {
-    if (a.draftNumber !== b.draftNumber) {
-      return b.draftNumber - a.draftNumber;
+    switch (type) {
+      case "ADMIN":
+        return "bg-blue-100 text-blue-800";
+      case "USER":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading your draft reports...</p>
-        </div>
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full mb-6">
-            <FileText className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-indigo-900 bg-clip-text text-transparent mb-4">
-            Draft Reports
-          </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Review and respond to draft reports from the admin. Upload your revised versions to continue the collaborative review process.
-          </p>
-        </div>
+    <div>
+      <div className="mb-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Draft Reports</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          View and respond to draft reports from the admin. You can download drafts, respond with changes, or mark them as final.
+        </p>
+      </div>
 
-        {/* Response Form */}
-        {showResponseForm && selectedDraft && (
-          <div className="mb-8 card p-8 border-2 border-blue-200 shadow-2xl">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                <Reply className="h-6 w-6 text-white" />
+      <div className="space-y-4">
+        {drafts.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No drafts found. Drafts will appear here when the admin creates them for you.</p>
+          </div>
+        ) : (
+          drafts.map((draft) => (
+            <div
+              key={draft.id}
+              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">{draft.fileName}</h3>
+                  <p className="text-sm text-gray-500">
+                    Financial Year: {draft.financialYear} | Draft #{draft.draftNumber}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Created: {new Date(draft.createdAt).toLocaleDateString()} | 
+                    Size: {formatFileSize(draft.fileSize)}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(draft.status)}`}>
+                    {draft.status}
+                  </span>
+                  <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getDraftTypeColor(draft.draftType)}`}>
+                    {draft.draftType}
+                  </span>
+                </div>
               </div>
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900">
-                  Upload Draft #{selectedDraft.draftNumber + 1}
-                </h3>
-                <p className="text-gray-600">Submit your revised version with improvements</p>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => window.open(draft.fileUrl, '_blank')}
+                  className="btn-secondary flex items-center space-x-2 px-3 py-1 text-sm"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>View</span>
+                </button>
+                <button
+                  onClick={() => window.open(draft.fileUrl, '_blank')}
+                  className="btn-primary flex items-center space-x-2 px-3 py-1 text-sm"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Download</span>
+                </button>
+                {draft.status === "PENDING_REVIEW" && (
+                  <button
+                    onClick={() => setSelectedDraft(draft)}
+                    className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 flex items-center space-x-2 text-sm"
+                  >
+                    <Reply className="h-4 w-4" />
+                    <span>Respond</span>
+                  </button>
+                )}
+                {draft.status === "APPROVED" && (
+                  <button
+                    onClick={() => handleMarkAsFinal(draft.id)}
+                    disabled={markingFinal === draft.id}
+                    className="bg-purple-600 text-white px-3 py-1 rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2 text-sm"
+                  >
+                    {markingFinal === draft.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4" />
+                    )}
+                    <span>{markingFinal === draft.id ? "Marking..." : "Mark as Final"}</span>
+                  </button>
+                )}
               </div>
             </div>
-            <form onSubmit={handleRespondToDraft} className="space-y-6">
+          ))
+        )}
+      </div>
+
+      {/* Response Form Modal */}
+      {showResponseForm && selectedDraft && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Respond to Draft</h3>
+            <form onSubmit={handleRespondToDraft} className="space-y-4">
               <div>
-                <label className="block text-lg font-semibold text-gray-700 mb-3">
-                  Upload Your Revised Draft
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Upload Response File
                 </label>
                 <input
                   type="file"
                   required
                   accept=".docx,.doc,.pdf"
-                  onChange={handleFileChange}
-                  className="input-field border-2 border-dashed border-blue-300 hover:border-blue-400 transition-colors"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
-                <p className="text-sm text-gray-500 mt-2 flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  Upload your revised version with changes and improvements (Word/PDF only)
-                </p>
               </div>
-
               <div>
-                <label className="block text-lg font-semibold text-gray-700 mb-3">
-                  Comments & Changes Made
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Comments
                 </label>
                 <textarea
                   value={comments}
                   onChange={(e) => setComments(e.target.value)}
-                  rows={4}
-                  className="input-field resize-none"
-                  placeholder="Describe the changes you made, improvements, or any questions for the admin..."
+                  rows={3}
+                  className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Add any comments or feedback..."
                 />
               </div>
-
-              <div className="flex space-x-4">
+              <div className="flex space-x-2">
                 <button
                   type="submit"
                   disabled={responding || !selectedFile}
-                  className="btn-primary flex items-center space-x-3 disabled:opacity-50 px-8 py-3 text-lg"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center space-x-2"
                 >
                   {responding ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Upload className="h-5 w-5" />
+                    <Upload className="h-4 w-4" />
                   )}
-                  <span>{responding ? "Uploading..." : `Upload Draft #${selectedDraft.draftNumber + 1}`}</span>
+                  <span>{responding ? "Submitting..." : "Submit Response"}</span>
                 </button>
                 <button
                   type="button"
@@ -262,143 +290,15 @@ export default function DraftReports() {
                     setComments("");
                     setSelectedDraft(null);
                   }}
-                  className="btn-secondary px-8 py-3 text-lg"
+                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
                 >
                   Cancel
                 </button>
               </div>
             </form>
           </div>
-        )}
-
-        {/* Drafts List */}
-        <div className="space-y-8">
-          {sortedDrafts.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-24 h-24 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FileText className="h-12 w-12 text-gray-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">No Draft Reports Yet</h3>
-              <p className="text-gray-600 max-w-md mx-auto text-lg leading-relaxed">
-                Draft reports will appear here when the admin creates them from your approved uploads. 
-                You'll be able to review and respond with your revisions.
-              </p>
-            </div>
-          ) : (
-            sortedDrafts.map((draft) => (
-              <div
-                key={draft.id}
-                className="card p-8 hover:shadow-2xl transition-all duration-300 border-2 hover:border-blue-200"
-              >
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-4 mb-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        draft.draftType === "ADMIN_TO_USER" 
-                          ? "bg-gradient-to-r from-blue-600 to-indigo-600" 
-                          : "bg-gradient-to-r from-green-600 to-emerald-600"
-                      }`}>
-                        {draft.draftType === "ADMIN_TO_USER" ? (
-                          <Download className="h-6 w-6 text-white" />
-                        ) : (
-                          <Upload className="h-6 w-6 text-white" />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-bold text-gray-900">
-                          Draft #{draft.draftNumber} - {draft.fileName}
-                        </h3>
-                        <p className="text-gray-600">
-                          {draft.draftType === "ADMIN_TO_USER" ? "From Admin" : "Your Response"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-base text-gray-600">
-                      <div className="space-y-2">
-                        <p><span className="font-semibold">Template:</span> {draft.template.name}</p>
-                        <p><span className="font-semibold">Financial Year:</span> {draft.financialYear}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <p><span className="font-semibold">Created:</span> {new Date(draft.createdAt).toLocaleDateString()}</p>
-                        <p><span className="font-semibold">Size:</span> {formatFileSize(draft.fileSize)}</p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-4 flex items-center">
-                      <span className="font-semibold mr-2">Based on:</span> {draft.originalUpload.fileName}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end space-y-3">
-                    <span className={`inline-flex px-4 py-2 text-sm font-semibold rounded-full border ${getDraftTypeColor(draft.draftType)}`}>
-                      {draft.draftType === "ADMIN_TO_USER" ? "From Admin" : "Your Response"}
-                    </span>
-                    <span className={`inline-flex px-4 py-2 text-sm font-semibold rounded-full border ${getStatusColor(draft.status)}`}>
-                      {draft.status}
-                    </span>
-                  </div>
-                </div>
-                
-                {draft.comments && (
-                  <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-100">
-                    <div className="flex items-start space-x-3">
-                      <MessageSquare className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold text-blue-900 mb-1">Comments:</p>
-                        <p className="text-blue-800 leading-relaxed">{draft.comments}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex flex-wrap gap-4">
-                  <a
-                    href={draft.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-secondary flex items-center space-x-2 px-6 py-3"
-                  >
-                    <Eye className="h-5 w-5" />
-                    <span>View</span>
-                  </a>
-                  <a
-                    href={draft.fileUrl}
-                    download
-                    className="btn-primary flex items-center space-x-2 px-6 py-3"
-                  >
-                    <Download className="h-5 w-5" />
-                    <span>Download</span>
-                  </a>
-                  {canRespondToDraft(draft) && (
-                    <button
-                      onClick={() => {
-                        setSelectedDraft(draft);
-                        setShowResponseForm(true);
-                      }}
-                      className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2"
-                    >
-                      <Reply className="h-5 w-5" />
-                      <span>Upload Draft #{draft.draftNumber + 1}</span>
-                    </button>
-                  )}
-                  {canMarkAsFinal(draft) && (
-                    <button
-                      onClick={() => handleMarkAsFinal(draft.id)}
-                      disabled={markingFinal === draft.id}
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center space-x-2 disabled:opacity-50"
-                    >
-                      {markingFinal === draft.id ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <CheckCircle className="h-5 w-5" />
-                      )}
-                      <span>{markingFinal === draft.id ? "Marking..." : "Mark as Final"}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

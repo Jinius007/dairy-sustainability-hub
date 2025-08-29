@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { findUserByCredentials } from "./mock-users";
-import { logUserLogin, logUserLogout } from "./mock-activity-logs";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,25 +13,48 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
+          console.log("Missing credentials");
           return null;
         }
 
         try {
-          const user = findUserByCredentials(credentials.username, credentials.password);
+          console.log("Attempting login for:", credentials.username);
           
-          if (user) {
-            // Log successful login
-            logUserLogin(user.id, user.username, user.role);
-            
-            return {
-              id: user.id,
-              name: user.name,
-              username: user.username,
-              role: user.role,
-            };
+          // Find user in database
+          const user = await prisma.user.findUnique({
+            where: { username: credentials.username }
+          });
+          
+          if (!user) {
+            console.log("User not found");
+            return null;
           }
+
+          // Verify password
+          const isValidPassword = await bcrypt.compare(credentials.password, user.password);
           
-          return null;
+          if (!isValidPassword) {
+            console.log("Invalid password");
+            return null;
+          }
+
+          console.log("Login successful for:", user.username, "Role:", user.role);
+          
+          // Log activity
+          await prisma.activityLog.create({
+            data: {
+              userId: user.id,
+              action: "LOGIN",
+              details: `User ${user.username} logged in successfully`
+            }
+          });
+          
+          return {
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            role: user.role,
+          };
         } catch (error) {
           console.error("Auth error:", error);
           return null;
@@ -63,5 +86,6 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "your-secret-key",
+  debug: true,
 };

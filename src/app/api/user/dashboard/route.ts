@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getDraftsByUserId } from '@/lib/mock-drafts';
-import { getUploadsByUserId } from '@/lib/mock-uploads';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,9 +16,41 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Get user's drafts and uploads using mock data
-    const userDrafts = getDraftsByUserId(userId);
-    const userUploads = getUploadsByUserId(userId);
+    // Get user's drafts and uploads from database
+    const [userDrafts, userUploads] = await Promise.all([
+      prisma.draft.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              username: true
+            }
+          }
+        }
+      }),
+      prisma.upload.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          template: {
+            select: {
+              name: true,
+              financialYear: true
+            }
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              username: true
+            }
+          }
+        }
+      })
+    ]);
 
     // Calculate statistics
     const totalUploads = userUploads.length;

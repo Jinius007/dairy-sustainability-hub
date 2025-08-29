@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { put } from '@vercel/blob';
-import { getAllDrafts, addMockDraft, updateDraftStatus, getDraftsByUserId, getNextDraftNumber, getNextDraftNumberForUpload } from '@/lib/mock-drafts';
-import { getAllUploads } from '@/lib/mock-uploads';
-import { getAllUsers } from '@/lib/mock-users';
 
 // GET - Get all drafts (admin only)
 export async function GET(request: NextRequest) {
@@ -18,35 +16,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const uploadId = searchParams.get('uploadId');
-
-    let drafts;
-    if (userId) {
-      drafts = getDraftsByUserId(userId);
-    } else {
-      drafts = getAllDrafts();
-    }
-
-    // Add user and upload information
-    const users = getAllUsers();
-    const uploads = getAllUploads();
-    
-    const draftsWithDetails = drafts.map(draft => {
-      const user = users.find(u => u.id === draft.userId);
-      const upload = uploads.find(u => u.id === draft.uploadId);
-      return {
-        ...draft,
-        user: user || draft.user,
-        originalUpload: upload ? {
-          fileName: upload.fileName,
-          uploadedAt: upload.createdAt
-        } : draft.originalUpload
-      };
+    const drafts = await prisma.draft.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
 
-    return NextResponse.json(draftsWithDetails);
+    return NextResponse.json(drafts);
   } catch (error) {
     console.error('Error fetching drafts:', error);
     return NextResponse.json(
@@ -56,7 +41,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new draft from user upload (admin only)
+// POST - Create a new draft (admin only)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -81,26 +66,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type - Draft reports can be Word or PDF files
-    const allowedExtensions = ['.docx', '.doc', '.pdf'];
-    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-    if (!allowedExtensions.includes(fileExtension)) {
-      return NextResponse.json(
-        { error: 'Only Word files (.docx, .doc) or PDF files (.pdf) are allowed for draft reports' },
-        { status: 400 }
-      );
-    }
-
-    // Upload file to Vercel Blob Storage
-    const blob = await put(file.name, file, {
-      access: 'public',
-    });
-
-    // Get user and upload information
-    const users = getAllUsers();
-    const uploads = getAllUploads();
-    const user = users.find(u => u.id === userId);
-    const upload = uploads.find(u => u.id === uploadId);
+    // Get user and upload to verify they exist
+    const [user, upload] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.upload.findUnique({ 
+        where: { id: uploadId },
+        include: { template: true }
+      })
+    ]);
 
     if (!user || !upload) {
       return NextResponse.json(
@@ -109,44 +82,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create draft object
-    const draftNumber = getNextDraftNumberForUpload(uploadId);
-    const draft = {
-      draftNumber,
-      draftType: "ADMIN_TO_USER" as const,
-      fileName: file.name,
-      fileUrl: blob.url,
-      fileSize: file.size,
-      financialYear: upload.financialYear,
-      status: "PENDING_REVIEW",
-      userId,
-      templateId: upload.templateId,
-      uploadId,
-      comments: comments || `Draft ${draftNumber} created from your uploaded data. Please review and provide feedback.`,
-      user: {
-        id: user.id,
-        name: user.name,
-        username: user.username
-      },
-      template: upload.template,
-      originalUpload: {
-        fileName: upload.fileName,
-        uploadedAt: upload.createdAt
-      }
-    };
+    // Upload file to Vercel Blob
+    const blob = await put(file.name, file, {
+      access: 'public',
+    });
 
-    // Add to shared drafts storage
-    const savedDraft = addMockDraft(draft);
+    // Get the next draft number for this user
+    const existingDrafts = await prisma.draft.findMany({
+      where: { userId },
+      orderBy: { draftNumber: 'desc' },
+      take: 1
+    });
+
+    const draftNumber = existingDrafts.length > 0 ? existingDrafts[0].draftNumber + 1 : 1;
+
+    // Create the draft
+    const newDraft = await prisma.draft.create({
+      data: {
+        userId,
+        draftNumber,
+        draftType: "ADMIN",
+        fileName: file.name,
+        fileUrl: blob.url,
+        fileSize: file.size,
+        financialYear: upload.financialYear,
+        status: "PENDING_REVIEW",
+        uploadedTemplateId: upload.templateId
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true
+          }
+        }
+      }
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: "CREATE_DRAFT",
+        details: `Created draft ${draftNumber} for user ${user.username}: ${file.name}`
+      }
+    });
 
     console.log('Draft created successfully:', {
-      draftId: savedDraft.id,
+      draftId: newDraft.id,
       fileName: file.name,
       blobUrl: blob.url,
       createdFor: user.username,
       draftNumber
     });
 
-    return NextResponse.json(savedDraft, { status: 201 });
+    return NextResponse.json(newDraft, { status: 201 });
   } catch (error) {
     console.error('Error creating draft:', error);
     return NextResponse.json(
@@ -177,14 +168,23 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update draft status using shared function
-    const updatedDraft = updateDraftStatus(id, status, comments);
-    if (!updatedDraft) {
-      return NextResponse.json(
-        { error: 'Draft not found' },
-        { status: 404 }
-      );
-    }
+    // Update draft status
+    const updatedDraft = await prisma.draft.update({
+      where: { id },
+      data: {
+        status,
+        updatedAt: new Date()
+      }
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPDATE_DRAFT",
+        details: `Updated draft ${updatedDraft.draftNumber} status to: ${status}`
+      }
+    });
 
     console.log(`Admin updated draft ${id} status to: ${status}`);
 

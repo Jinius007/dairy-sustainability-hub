@@ -1,93 +1,88 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
+// GET - Get admin dashboard statistics
+export async function GET(request: NextRequest) {
   try {
-    // Get total counts
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required' },
+        { status: 401 }
+      );
+    }
+
+    // Get all statistics
     const [
       totalUsers,
       totalTemplates,
       totalUploads,
-      totalReports,
-      recentActivities
+      totalDrafts,
+      totalActivityLogs,
+      uploadsByStatus,
+      recentUploads,
+      recentReports
     ] = await Promise.all([
       prisma.user.count(),
       prisma.template.count({ where: { isActive: true } }),
       prisma.upload.count(),
-      prisma.report.count(),
-      prisma.activityLog.findMany({
-        take: 10,
+      prisma.draft.count(),
+      prisma.activityLog.count(),
+      prisma.upload.groupBy({
+        by: ['status'],
+        _count: {
+          status: true
+        }
+      }),
+      prisma.upload.findMany({
+        take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
           user: {
             select: {
               name: true,
-              username: true,
-            },
-          },
-        },
+              username: true
+            }
+          }
+        }
       }),
+      prisma.draft.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              name: true,
+              username: true
+            }
+          }
+        }
+      })
     ]);
-
-    // Get uploads by status
-    const uploadsByStatus = await prisma.upload.groupBy({
-      by: ['status'],
-      _count: {
-        status: true,
-      },
-    });
-
-    // Get recent uploads
-    const recentUploads = await prisma.upload.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: {
-          select: {
-            name: true,
-            username: true,
-          },
-        },
-      },
-    });
-
-    // Get recent reports
-    const recentReports = await prisma.report.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: {
-          select: {
-            name: true,
-            username: true,
-          },
-        },
-      },
-    });
 
     const stats = {
       totalUsers,
       totalTemplates,
       totalUploads,
-      totalReports,
+      totalDrafts,
+      totalActivityLogs,
       uploadsByStatus: uploadsByStatus.reduce((acc, item) => {
         acc[item.status] = item._count.status;
         return acc;
       }, {} as Record<string, number>),
-      recentActivities,
       recentUploads,
-      recentReports,
+      recentReports
     };
 
     return NextResponse.json(stats);
   } catch (error) {
     console.error('Error fetching admin stats:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch admin stats' },
+      { error: 'Failed to fetch admin statistics' },
       { status: 500 }
     );
   }
 }
-
-
-

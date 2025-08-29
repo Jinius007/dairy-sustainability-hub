@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/AuthProvider";
-import { StorageInitializer } from "@/components/providers/StorageInitializer";
 import { Toaster } from "@/components/ui/Toaster";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -26,7 +25,6 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className={`${inter.className} ${poppins.variable} h-full gradient-bg`}>
         <AuthProvider>
-          <StorageInitializer />
           {children}
           <Toaster />
         </AuthProvider>

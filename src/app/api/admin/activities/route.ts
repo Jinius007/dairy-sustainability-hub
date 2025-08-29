@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAllActivityLogs, getActivityLogsByUserId, getFilteredActivityLogs, getActivityStats } from '@/lib/mock-activity-logs';
+import { prisma } from '@/lib/prisma';
 
 // GET - Get activity logs (admin only)
 export async function GET(request: NextRequest) {
@@ -23,29 +23,72 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
     const includeStats = searchParams.get('includeStats') === 'true';
 
-    let logs;
-
+    // Build where clause
+    const where: any = {};
+    
     if (userId) {
-      // Get logs for specific user
-      logs = getActivityLogsByUserId(userId);
-    } else if (username || action || startDate || endDate) {
-      // Get filtered logs
-      logs = getFilteredActivityLogs({
-        username: username || undefined,
-        action: action || undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined
-      });
-    } else {
-      // Get all logs
-      logs = getAllActivityLogs();
+      where.userId = userId;
+    }
+    
+    if (action) {
+      where.action = action;
+    }
+    
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate);
+      }
     }
 
-    const response: any = { logs };
+    // Get logs
+    const logs = await prisma.activityLog.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            role: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Filter by username if provided
+    let filteredLogs = logs;
+    if (username) {
+      filteredLogs = logs.filter(log => 
+        log.user.username.toLowerCase().includes(username.toLowerCase())
+      );
+    }
+
+    const response: any = { logs: filteredLogs };
 
     if (includeStats) {
-      const stats = getActivityStats(userId || undefined);
-      response.stats = stats;
+      const stats = await prisma.activityLog.groupBy({
+        by: ['action'],
+        where: userId ? { userId } : {},
+        _count: {
+          action: true
+        }
+      });
+      
+      response.stats = {
+        totalActions: filteredLogs.length,
+        actionsByType: stats.reduce((acc, stat) => {
+          acc[stat.action] = stat._count.action;
+          return acc;
+        }, {} as Record<string, number>),
+        recentActivity: filteredLogs.slice(0, 10)
+      };
     }
 
     return NextResponse.json(response);

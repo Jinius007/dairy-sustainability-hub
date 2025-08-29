@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getActivityLogsByUserId, getFilteredActivityLogs } from '@/lib/mock-activity-logs';
+import { prisma } from '@/lib/prisma';
 
-// GET - Get user's own activity logs
+// GET - Get user's activity logs
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,27 +17,59 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
-    const resourceType = searchParams.get('resourceType');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const includeStats = searchParams.get('includeStats') === 'true';
 
-    let logs;
-
-    if (action || resourceType || startDate || endDate) {
-      // Get filtered logs for the current user
-      logs = getFilteredActivityLogs({
-        userId: session.user.id,
-        action: action || undefined,
-        resourceType: resourceType || undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined
-      });
-    } else {
-      // Get all logs for the current user
-      logs = getActivityLogsByUserId(session.user.id);
+    // Build where clause
+    const where: any = {
+      userId: session.user.id
+    };
+    
+    if (action) {
+      where.action = action;
+    }
+    
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate);
+      }
     }
 
-    return NextResponse.json(logs);
+    // Get logs
+    const logs = await prisma.activityLog.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    const response: any = { logs };
+
+    if (includeStats) {
+      const stats = await prisma.activityLog.groupBy({
+        by: ['action'],
+        where: { userId: session.user.id },
+        _count: {
+          action: true
+        }
+      });
+      
+      response.stats = {
+        totalActions: logs.length,
+        actionsByType: stats.reduce((acc, stat) => {
+          acc[stat.action] = stat._count.action;
+          return acc;
+        }, {} as Record<string, number>),
+        recentActivity: logs.slice(0, 10)
+      };
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching user activity logs:', error);
     return NextResponse.json(

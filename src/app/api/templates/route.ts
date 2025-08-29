@@ -1,25 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { put } from '@vercel/blob';
-import { getAllTemplates, addMockTemplate, updateMockTemplate, deleteMockTemplate, replaceMockTemplate, getTemplateHistory } from '@/lib/mock-templates';
 
-// GET - Get all active templates (for users to download)
+// GET - Get all active templates
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const financialYear = searchParams.get('financialYear');
     const includeHistory = searchParams.get('includeHistory') === 'true';
+    const financialYear = searchParams.get('financialYear');
+
+    const where: any = {};
     
-    if (includeHistory && financialYear) {
-      // Return template history for admin view
-      const templates = getTemplateHistory(financialYear);
-      return NextResponse.json(templates);
-    } else {
-      // Return only active templates for users
-      const templates = getAllTemplates();
-      return NextResponse.json(templates);
+    if (!includeHistory) {
+      where.isActive = true;
     }
+    
+    if (financialYear) {
+      where.financialYear = financialYear;
+    }
+
+    const templates = await prisma.template.findMany({
+      where,
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    return NextResponse.json(templates);
   } catch (error) {
     console.error('Error fetching templates:', error);
     return NextResponse.json(
@@ -29,11 +38,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Upload new template (admin only)
+// POST - Create new template (admin only)
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication and admin role
     const session = await getServerSession(authOptions);
+    
     if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Unauthorized - Admin access required' },
@@ -47,7 +56,6 @@ export async function POST(request: NextRequest) {
     const financialYear = formData.get('financialYear') as string;
     const description = formData.get('description') as string;
     const replaceExisting = formData.get('replaceExisting') === 'true';
-    const existingTemplateId = formData.get('existingTemplateId') as string;
 
     if (!file || !name || !financialYear) {
       return NextResponse.json(
@@ -56,71 +64,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
-      return NextResponse.json(
-        { error: 'Only Excel files (.xlsx, .xls) are allowed' },
-        { status: 400 }
-      );
-    }
-
-    // Upload file to Vercel Blob Storage
+    // Upload file to Vercel Blob
     const blob = await put(file.name, file, {
       access: 'public',
     });
 
-    // Create template object
-    const templateData = {
-      name,
-      fileName: file.name,
-      fileUrl: blob.url,
-      fileSize: file.size,
-      financialYear,
-      description: description || `Template for ${financialYear}`,
-      isActive: true,
-      uploadedBy: session.user.id
-    };
-
-    let savedTemplate;
-
-    if (replaceExisting && existingTemplateId) {
-      // Replace existing template (creates new version, deactivates old)
-      savedTemplate = replaceMockTemplate(existingTemplateId, templateData);
-      if (!savedTemplate) {
-        return NextResponse.json(
-          { error: 'Existing template not found' },
-          { status: 404 }
-        );
-      }
-    } else {
-      // Add new template
-      savedTemplate = addMockTemplate(templateData);
+    if (replaceExisting) {
+      // Deactivate existing templates for this financial year
+      await prisma.template.updateMany({
+        where: {
+          financialYear,
+          isActive: true
+        },
+        data: {
+          isActive: false
+        }
+      });
     }
 
-    console.log('Template uploaded successfully:', {
-      templateId: savedTemplate.id,
-      fileName: file.name,
-      blobUrl: blob.url,
-      uploadedBy: session.user.username,
-      version: savedTemplate.version,
-      action: replaceExisting ? 'replaced' : 'created'
+    // Create new template
+    const newTemplate = await prisma.template.create({
+      data: {
+        name,
+        fileName: file.name,
+        fileUrl: blob.url,
+        fileSize: file.size,
+        financialYear,
+        description,
+        isActive: true,
+        uploadedBy: session.user.id
+      }
     });
 
-    return NextResponse.json(savedTemplate, { status: 201 });
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPLOAD_TEMPLATE",
+        details: `Uploaded template: ${name} for ${financialYear}`
+      }
+    });
+
+    console.log('Template created successfully:', {
+      templateId: newTemplate.id,
+      fileName: file.name,
+      blobUrl: blob.url,
+      uploadedBy: session.user.username
+    });
+
+    return NextResponse.json(newTemplate, { status: 201 });
   } catch (error) {
-    console.error('Error uploading template:', error);
+    console.error('Error creating template:', error);
     return NextResponse.json(
-      { error: 'Failed to upload template' },
+      { error: 'Failed to create template' },
       { status: 500 }
     );
   }
 }
 
-// PUT - Update template metadata (creates new version)
+// PUT - Update template (admin only)
 export async function PUT(request: NextRequest) {
   try {
-    // Check authentication and admin role
     const session = await getServerSession(authOptions);
+    
     if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Unauthorized - Admin access required' },
@@ -137,21 +143,24 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update template using shared function (creates new version)
-    const updatedTemplate = updateMockTemplate(id, {
-      name: name || undefined,
-      description: description || undefined,
-      isActive: isActive !== undefined ? isActive : undefined,
+    const updatedTemplate = await prisma.template.update({
+      where: { id },
+      data: {
+        name,
+        description,
+        isActive,
+        updatedAt: new Date()
+      }
     });
 
-    if (!updatedTemplate) {
-      return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      );
-    }
-
-    console.log(`Template ${id} updated to version ${updatedTemplate.version}`);
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPLOAD_TEMPLATE",
+        details: `Updated template: ${updatedTemplate.name}`
+      }
+    });
 
     return NextResponse.json(updatedTemplate);
   } catch (error) {
@@ -163,11 +172,11 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE - Delete template (soft delete - sets as inactive)
+// DELETE - Delete template (admin only)
 export async function DELETE(request: NextRequest) {
   try {
-    // Check authentication and admin role
     const session = await getServerSession(authOptions);
+    
     if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Unauthorized - Admin access required' },
@@ -185,17 +194,23 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete template using shared function (soft delete)
-    const deletedTemplate = deleteMockTemplate(id);
-    
-    if (!deletedTemplate) {
-      return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      );
-    }
+    // Soft delete by setting isActive to false
+    const deletedTemplate = await prisma.template.update({
+      where: { id },
+      data: {
+        isActive: false,
+        updatedAt: new Date()
+      }
+    });
 
-    console.log(`Template ${id} soft deleted (set as inactive)`);
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPLOAD_TEMPLATE",
+        details: `Deleted template: ${deletedTemplate.name}`
+      }
+    });
 
     return NextResponse.json({ message: 'Template deleted successfully' });
   } catch (error) {

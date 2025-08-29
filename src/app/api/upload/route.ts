@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { addMockUpload } from '@/lib/mock-uploads';
+import { prisma } from '@/lib/prisma';
+import { put } from '@vercel/blob';
 
 // GET - Get user's uploads (filtered by user)
 export async function GET(request: NextRequest) {
@@ -16,11 +16,26 @@ export async function GET(request: NextRequest) {
     }
 
     // Return only the current user's uploads
-    const { getAllUploads } = await import('@/lib/mock-uploads');
-    const allUploads = getAllUploads();
-    const userUploads = allUploads.filter(upload => upload.userId === session.user.id);
+    const uploads = await prisma.upload.findMany({
+      where: { userId: session.user.id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true
+          }
+        },
+        template: {
+          select: {
+            name: true,
+            financialYear: true
+          }
+        }
+      }
+    });
 
-    return NextResponse.json(userUploads);
+    return NextResponse.json(uploads);
   } catch (error) {
     console.error('Error fetching uploads:', error);
     return NextResponse.json(
@@ -30,10 +45,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Upload user data
+// POST - Upload filled template
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    
     if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -53,23 +69,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
-      return NextResponse.json(
-        { error: 'Only Excel files (.xlsx, .xls) are allowed' },
-        { status: 400 }
-      );
-    }
-
-    // Upload to Vercel Blob
-    const blob = await put(file.name, file, {
-      access: 'public',
+    // Get template to verify it exists and is active
+    const template = await prisma.template.findUnique({
+      where: { id: templateId }
     });
 
-    // Get template information
-    const { getTemplateById } = await import('@/lib/mock-templates');
-    const template = getTemplateById(templateId);
-    
     if (!template) {
       return NextResponse.json(
         { error: 'Template not found' },
@@ -77,41 +81,68 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create upload object and add to admin's view
-    const upload = {
-      fileName: file.name,
-      fileUrl: blob.url,
-      fileSize: file.size,
-      financialYear,
-      userId: session.user.id,
-      templateId,
-      status: 'PENDING',
-      user: {
-        id: session.user.id,
-        name: session.user.name || 'Unknown User',
-        username: session.user.username || 'unknown',
-      },
-      template: {
-        name: template.name,
-        financialYear: template.financialYear
-      }
-    };
+    if (!template.isActive) {
+      return NextResponse.json(
+        { error: 'Template is not active' },
+        { status: 400 }
+      );
+    }
 
-    // Add to admin's uploads list
-    const savedUpload = addMockUpload(upload);
-
-    console.log('File uploaded successfully:', {
-      uploadId: savedUpload.id,
-      fileName: file.name,
-      blobUrl: blob.url,
-      uploadedBy: session.user.username
+    // Upload file to Vercel Blob
+    const blob = await put(file.name, file, {
+      access: 'public',
     });
 
-    return NextResponse.json(savedUpload, { status: 201 });
+    // Create upload record
+    const newUpload = await prisma.upload.create({
+      data: {
+        fileName: file.name,
+        fileUrl: blob.url,
+        fileSize: file.size,
+        financialYear,
+        status: 'PENDING',
+        userId: session.user.id,
+        templateId
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true
+          }
+        },
+        template: {
+          select: {
+            name: true,
+            financialYear: true
+          }
+        }
+      }
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPLOAD_DATA",
+        details: `Uploaded filled template: ${file.name} for ${financialYear}`
+      }
+    });
+
+    console.log('Upload created successfully:', {
+      uploadId: newUpload.id,
+      fileName: file.name,
+      blobUrl: blob.url,
+      user: session.user.username,
+      template: template.name
+    });
+
+    return NextResponse.json(newUpload, { status: 201 });
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Error creating upload:', error);
     return NextResponse.json(
-      { error: 'Failed to upload file' },
+      { error: 'Failed to create upload' },
       { status: 500 }
     );
   }

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { updateDraftStatus } from "@/lib/mock-drafts";
-import { logDraftAction } from "@/lib/mock-activity-logs";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
@@ -17,10 +16,12 @@ export async function POST(
 
     const draftId = params.id;
 
-    // Update the draft to mark it as accepted/final
-    const updatedDraft = updateDraftStatus(draftId, "FINAL", "Draft accepted as final");
-    
-    if (!updatedDraft) {
+    // Get the draft and verify user owns it
+    const draft = await prisma.draft.findUnique({
+      where: { id: draftId }
+    });
+
+    if (!draft) {
       return NextResponse.json(
         { error: "Draft not found" },
         { status: 404 }
@@ -28,23 +29,31 @@ export async function POST(
     }
 
     // Verify user owns this draft
-    if (updatedDraft.userId !== session.user.id) {
+    if (draft.userId !== session.user.id) {
       return NextResponse.json(
         { error: "Access denied - you can only accept your own drafts" },
         { status: 403 }
       );
     }
 
+    // Update the draft to mark it as accepted/final
+    const updatedDraft = await prisma.draft.update({
+      where: { id: draftId },
+      data: {
+        status: "FINAL",
+        isFinal: true,
+        updatedAt: new Date()
+      }
+    });
+
     // Log activity
-    logDraftAction(
-      session.user.id,
-      session.user.username || 'unknown',
-      session.user.role,
-      'ACCEPT',
-      draftId,
-      updatedDraft.fileName,
-      `Accepted draft ${updatedDraft.draftNumber} as final`
-    );
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: "FINALIZE_DRAFT",
+        details: `Accepted draft ${draft.draftNumber} as final: ${draft.fileName}`
+      }
+    });
 
     console.log(`User ${session.user.username} accepted draft ${draftId} as final`);
 

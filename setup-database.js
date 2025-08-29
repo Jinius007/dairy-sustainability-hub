@@ -6,19 +6,23 @@ const prisma = new PrismaClient();
 async function setupDatabase() {
   try {
     console.log('🚀 Setting up database...');
+    
+    // Test database connection
+    console.log('Testing database connection...');
+    await prisma.$connect();
+    console.log('✅ Database connection successful');
 
-    // Check if admin user already exists
+    // Check if admin user exists
     const existingAdmin = await prisma.user.findUnique({
       where: { username: 'admin' }
     });
 
     if (!existingAdmin) {
-      console.log('📝 Creating admin user...');
+      console.log('Creating admin user...');
       
-      // Hash password
-      const hashedPassword = await bcrypt.hash('password', 10);
+      // Hash the password
+      const hashedPassword = await bcrypt.hash('admin123', 12);
       
-      // Create admin user
       const adminUser = await prisma.user.create({
         data: {
           name: 'Admin User',
@@ -33,48 +37,43 @@ async function setupDatabase() {
       console.log('✅ Admin user already exists');
     }
 
-    // Check if regular users exist
-    const existingUsers = await prisma.user.findMany({
-      where: {
-        username: { in: ['john', 'jane'] }
-      }
-    });
+    // Create some default users for testing
+    const defaultUsers = [
+      { name: 'John Doe', username: 'john', password: 'password123', role: 'USER' },
+      { name: 'Jane Smith', username: 'jane', password: 'password123', role: 'USER' }
+    ];
 
-    if (existingUsers.length < 2) {
-      console.log('📝 Creating regular users...');
-      
-      const hashedPassword = await bcrypt.hash('password', 10);
-      
-      const usersToCreate = [
-        { name: 'John Doe', username: 'john' },
-        { name: 'Jane Smith', username: 'jane' }
-      ];
+    for (const userData of defaultUsers) {
+      const existingUser = await prisma.user.findUnique({
+        where: { username: userData.username }
+      });
 
-      for (const userData of usersToCreate) {
-        const existingUser = await prisma.user.findUnique({
-          where: { username: userData.username }
+      if (!existingUser) {
+        const hashedPassword = await bcrypt.hash(userData.password, 12);
+        
+        await prisma.user.create({
+          data: {
+            name: userData.name,
+            username: userData.username,
+            password: hashedPassword,
+            role: userData.role
+          }
         });
-
-        if (!existingUser) {
-          await prisma.user.create({
-            data: {
-              ...userData,
-              password: hashedPassword,
-              role: 'USER'
-            }
-          });
-          console.log(`✅ Created user: ${userData.username}`);
-        }
+        
+        console.log(`✅ Created user: ${userData.username}`);
+      } else {
+        console.log(`✅ User already exists: ${userData.username}`);
       }
-    } else {
-      console.log('✅ Regular users already exist');
     }
 
-    console.log('🎉 Database setup completed successfully!');
-    
+    console.log('✅ Database setup completed successfully!');
+    console.log('\n📋 Default credentials:');
+    console.log('Admin: admin / admin123');
+    console.log('John: john / password123');
+    console.log('Jane: jane / password123');
+
   } catch (error) {
     console.error('❌ Database setup failed:', error);
-    process.exit(1);
   } finally {
     await prisma.$disconnect();
   }

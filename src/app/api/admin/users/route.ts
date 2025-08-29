@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAllUsers, addMockUser, deleteMockUser } from '@/lib/mock-users';
-import { logUserAction } from '@/lib/mock-activity-logs';
+import { prisma } from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
 
 // GET - Get all users (admin only)
 export async function GET(request: NextRequest) {
@@ -16,7 +16,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const users = getAllUsers();
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
     return NextResponse.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -57,23 +68,47 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const newUser = addMockUser({
-        name,
-        username,
-        password,
-        role: role.toUpperCase()
+      // Check if username already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { username }
       });
 
-      // Log the user creation
-      logUserAction(
-        session.user.id,
-        session.user.username || 'admin',
-        session.user.role,
-        'CREATE',
-        newUser.id,
-        username,
-        `Created new ${role.toLowerCase()} account`
-      );
+      if (existingUser) {
+        return NextResponse.json(
+          { error: 'Username already exists' },
+          { status: 409 }
+        );
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 12);
+
+      // Create user
+      const newUser = await prisma.user.create({
+        data: {
+          name,
+          username,
+          password: hashedPassword,
+          role: role.toUpperCase() as any
+        },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      });
+
+      // Log activity
+      await prisma.activityLog.create({
+        data: {
+          userId: session.user.id,
+          action: 'CREATE_USER',
+          details: `Created new ${role.toLowerCase()} account: ${username}`
+        }
+      });
 
       console.log('User created successfully:', {
         userId: newUser.id,
@@ -82,11 +117,9 @@ export async function POST(request: NextRequest) {
         createdBy: session.user.username
       });
 
-      // Return user without password
-      const { password: _, ...userWithoutPassword } = newUser;
-      return NextResponse.json(userWithoutPassword, { status: 201 });
+      return NextResponse.json(newUser, { status: 201 });
     } catch (error) {
-      if (error instanceof Error && error.message === 'Username already exists') {
+      if (error instanceof Error && error.message.includes('Unique constraint')) {
         return NextResponse.json(
           { error: 'Username already exists' },
           { status: 409 }
@@ -133,29 +166,36 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const deletedUser = deleteMockUser(id);
-    
-    if (!deletedUser) {
+    // Get user info before deletion for logging
+    const userToDelete = await prisma.user.findUnique({
+      where: { id },
+      select: { username: true }
+    });
+
+    if (!userToDelete) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Log the user deletion
-    logUserAction(
-      session.user.id,
-      session.user.username || 'admin',
-      session.user.role,
-      'DELETE',
-      id,
-      deletedUser.username,
-      `Deleted user account`
-    );
+    // Delete user
+    await prisma.user.delete({
+      where: { id }
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'DELETE_USER',
+        details: `Deleted user account: ${userToDelete.username}`
+      }
+    });
 
     console.log('User deleted successfully:', {
       deletedUserId: id,
-      deletedUsername: deletedUser.username,
+      deletedUsername: userToDelete.username,
       deletedBy: session.user.username
     });
 

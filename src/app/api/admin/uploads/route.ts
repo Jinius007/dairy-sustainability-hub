@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAllUploads, updateUploadStatus } from '@/lib/mock-uploads';
+import { prisma } from '@/lib/prisma';
 
 // GET - Get all uploads (admin only)
 export async function GET(request: NextRequest) {
@@ -15,8 +15,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Return all uploads with user and template info
-    return NextResponse.json(getAllUploads());
+    const uploads = await prisma.upload.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true
+          }
+        },
+        template: {
+          select: {
+            name: true,
+            financialYear: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    return NextResponse.json(uploads);
   } catch (error) {
     console.error('Error fetching uploads:', error);
     return NextResponse.json(
@@ -47,14 +67,38 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update upload status using shared function
-    const updatedUpload = updateUploadStatus(id, status);
-    if (!updatedUpload) {
-      return NextResponse.json(
-        { error: 'Upload not found' },
-        { status: 404 }
-      );
-    }
+    // Update upload status
+    const updatedUpload = await prisma.upload.update({
+      where: { id },
+      data: {
+        status,
+        updatedAt: new Date()
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true
+          }
+        },
+        template: {
+          select: {
+            name: true,
+            financialYear: true
+          }
+        }
+      }
+    });
+
+    // Log activity
+    await prisma.activityLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPLOAD_DATA",
+        details: `Updated upload status to ${status}: ${updatedUpload.fileName}`
+      }
+    });
 
     console.log(`Admin updated upload ${id} status to: ${status}`);
 
