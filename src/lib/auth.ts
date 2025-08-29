@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { findUserByCredentials, logUserLogin, logUserLogout } from "./mock-users";
+import { findUserByCredentials } from "./mock-users";
+import { logUserLogin, logUserLogout } from "./mock-activity-logs";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -54,12 +55,6 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
       }
       return session;
-    },
-    async signOut({ token }) {
-      // Log logout when user signs out
-      if (token?.id && token?.username && token?.role) {
-        logUserLogout(token.id as string, token.username as string, token.role as string);
-      }
     }
   },
   pages: {

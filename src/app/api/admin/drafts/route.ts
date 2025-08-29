@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     const draftNumber = getNextDraftNumberForUpload(uploadId);
     const draft = {
       draftNumber,
-      draftType: "ADMIN_TO_USER",
+      draftType: "ADMIN_TO_USER" as const,
       fileName: file.name,
       fileUrl: blob.url,
       fileSize: file.size,

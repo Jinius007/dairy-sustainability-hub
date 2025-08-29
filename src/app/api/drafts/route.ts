@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     const draftNumber = getNextDraftNumberForUpload(uploadId);
     const draft = {
       draftNumber,
-      draftType: "USER_TO_ADMIN",
+      draftType: "USER_TO_ADMIN" as const,
       fileName: file.name,
       fileUrl: blob.url,
       fileSize: file.size,
@@ -109,8 +109,8 @@ export async function POST(request: NextRequest) {
       comments: comments || `Response to draft ${draftNumber - 1}. Please review the changes.`,
       user: {
         id: session.user.id,
-        name: session.user.name,
-        username: session.user.username
+        name: session.user.name || 'Unknown User',
+        username: session.user.username || 'unknown'
       },
       template: upload.template,
       originalUpload: {

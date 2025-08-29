@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const username = searchParams.get('username');
-    const role = searchParams.get('role');
     const action = searchParams.get('action');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -29,11 +28,10 @@ export async function GET(request: NextRequest) {
     if (userId) {
       // Get logs for specific user
       logs = getActivityLogsByUserId(userId);
-    } else if (username || role || action || startDate || endDate) {
+    } else if (username || action || startDate || endDate) {
       // Get filtered logs
       logs = getFilteredActivityLogs({
         username: username || undefined,
-        role: role || undefined,
         action: action || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined

@@ -88,8 +88,8 @@ export async function POST(request: NextRequest) {
       status: 'PENDING',
       user: {
         id: session.user.id,
-        name: session.user.name,
-        username: session.user.username,
+        name: session.user.name || 'Unknown User',
+        username: session.user.username || 'unknown',
       },
       template: {
         name: template.name,

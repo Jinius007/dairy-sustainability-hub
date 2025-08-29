@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAllUsers, addMockUser, deleteMockUser, logUserAction } from '@/lib/mock-users';
+import { getAllUsers, addMockUser, deleteMockUser } from '@/lib/mock-users';
+import { logUserAction } from '@/lib/mock-activity-logs';
 
 // GET - Get all users (admin only)
 export async function GET(request: NextRequest) {
@@ -97,54 +98,6 @@ export async function POST(request: NextRequest) {
     console.error('Error creating user:', error);
     return NextResponse.json(
       { error: 'Failed to create user' },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT - Update user (mock implementation)
-export async function PUT(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
-        { status: 401 }
-      );
-    }
-
-    const { id, name, username, password, role } = await request.json();
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Find and update user in mock data
-    const userIndex = mockUsers.findIndex(user => user.id === id);
-    if (userIndex === -1) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    // Update user
-    if (name) mockUsers[userIndex].name = name;
-    if (username) mockUsers[userIndex].username = username;
-    if (role) mockUsers[userIndex].role = role.toUpperCase();
-    if (password) mockUsers[userIndex].password = password;
-
-    const { password: _, ...updatedUser } = mockUsers[userIndex];
-
-    return NextResponse.json(updatedUser);
-  } catch (error) {
-    console.error('Error updating user:', error);
-    return NextResponse.json(
-      { error: 'Failed to update user' },
       { status: 500 }
     );
   }

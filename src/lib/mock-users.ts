@@ -111,3 +111,32 @@ export function deleteMockUser(id: string): User | null {
   }
   return null;
 }
+
+// Function to log user login (for activity logging)
+export function logUserLogin(userId: string, username: string, userRole: string): void {
+  // This function is imported by auth.ts but we'll implement it here
+  // The actual logging is handled by mock-activity-logs.ts
+  console.log(`User ${username} logged in`);
+}
+
+// Function to log user logout (for activity logging)
+export function logUserLogout(userId: string, username: string, userRole: string): void {
+  // This function is imported by auth.ts but we'll implement it here
+  // The actual logging is handled by mock-activity-logs.ts
+  console.log(`User ${username} logged out`);
+}
+
+// Function to log user action (for activity logging)
+export function logUserAction(
+  userId: string, 
+  username: string, 
+  userRole: string, 
+  action: string, 
+  targetUserId: string, 
+  targetUsername: string,
+  description?: string
+): void {
+  // This function is imported by admin/users/route.ts but we'll implement it here
+  // The actual logging is handled by mock-activity-logs.ts
+  console.log(`User action: ${action} on ${targetUsername}`);
+}
