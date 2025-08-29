@@ -60,7 +60,15 @@ export async function POST(request: NextRequest) {
     const uploadId = formData.get('uploadId') as string;
     const comments = formData.get('comments') as string;
 
+    console.log('Admin draft creation attempt:', {
+      fileName: file?.name,
+      userId,
+      uploadId,
+      comments
+    });
+
     if (!file || !userId || !uploadId) {
+      console.log('Missing required fields:', { file: !!file, userId: !!userId, uploadId: !!uploadId });
       return NextResponse.json(
         { error: 'File, user ID, and upload ID are required' },
         { status: 400 }
@@ -71,10 +79,16 @@ export async function POST(request: NextRequest) {
     const [user, upload] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId } }),
       prisma.upload.findUnique({ 
-        where: { id: uploadId },
-        include: { template: true }
+        where: { id: uploadId }
       })
     ]);
+
+    console.log('Database lookup results:', {
+      userFound: !!user,
+      uploadFound: !!upload,
+      uploadUserId: upload?.userId,
+      requestedUserId: userId
+    });
 
     if (!user || !upload) {
       return NextResponse.json(
@@ -85,6 +99,10 @@ export async function POST(request: NextRequest) {
 
     // Verify the upload belongs to the specified user
     if (upload.userId !== userId) {
+      console.log('Upload ownership mismatch:', {
+        uploadUserId: upload.userId,
+        requestedUserId: userId
+      });
       return NextResponse.json(
         { error: 'Upload does not belong to the specified user' },
         { status: 403 }
@@ -92,9 +110,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload file to Vercel Blob
+    console.log('Uploading file to Vercel Blob...');
     const blob = await put(file.name, file, {
       access: 'public',
     });
+    console.log('File uploaded successfully:', blob.url);
 
     // Get the next draft number for this user (should be odd number for admin drafts)
     const existingDrafts = await prisma.draft.findMany({
@@ -113,7 +133,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('Draft number calculation:', {
+      existingDraftsCount: existingDrafts.length,
+      calculatedDraftNumber: draftNumber
+    });
+
     // Create the draft
+    console.log('Creating draft in database...');
     const newDraft = await prisma.draft.create({
       data: {
         userId,
@@ -137,6 +163,11 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    console.log('Draft created successfully:', {
+      draftId: newDraft.id,
+      draftNumber: newDraft.draftNumber
+    });
+
     // Log activity
     await prisma.activityLog.create({
       data: {
@@ -158,7 +189,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating draft:', error);
     return NextResponse.json(
-      { error: 'Failed to create draft' },
+      { error: 'Failed to create draft', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
