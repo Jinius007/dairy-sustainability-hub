@@ -6,45 +6,41 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🚀 Starting database migration...');
 
-    // SQL script to create all tables and enums - simplified version
-    const migrationSQL = `
-      -- CreateEnum
-      DO $$ BEGIN
+    // Execute each command separately
+    const commands = [
+      // Create enums
+      `DO $$ BEGIN
         CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'USER');
       EXCEPTION
         WHEN duplicate_object THEN null;
-      END $$;
-
-      -- CreateEnum
-      DO $$ BEGIN
+      END $$;`,
+      
+      `DO $$ BEGIN
         CREATE TYPE "UploadStatus" AS ENUM ('PENDING', 'REVIEWED', 'APPROVED', 'REJECTED');
       EXCEPTION
         WHEN duplicate_object THEN null;
-      END $$;
-
-      -- CreateEnum
-      DO $$ BEGIN
+      END $$;`,
+      
+      `DO $$ BEGIN
         CREATE TYPE "ReportStatus" AS ENUM ('DRAFT', 'GENERATED', 'PUBLISHED');
       EXCEPTION
         WHEN duplicate_object THEN null;
-      END $$;
-
-      -- CreateEnum
-      DO $$ BEGIN
+      END $$;`,
+      
+      `DO $$ BEGIN
         CREATE TYPE "ActivityAction" AS ENUM ('LOGIN', 'LOGOUT', 'UPLOAD_TEMPLATE', 'DOWNLOAD_TEMPLATE', 'UPLOAD_DATA', 'DOWNLOAD_DATA', 'GENERATE_REPORT', 'DOWNLOAD_REPORT', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'CREATE_DRAFT', 'UPDATE_DRAFT', 'FINALIZE_DRAFT');
       EXCEPTION
         WHEN duplicate_object THEN null;
-      END $$;
-
-      -- CreateEnum
-      DO $$ BEGIN
+      END $$;`,
+      
+      `DO $$ BEGIN
         CREATE TYPE "DraftType" AS ENUM ('ADMIN', 'USER');
       EXCEPTION
         WHEN duplicate_object THEN null;
-      END $$;
+      END $$;`,
 
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "users" (
+      // Create tables
+      `CREATE TABLE IF NOT EXISTS "users" (
           "id" TEXT NOT NULL,
           "name" TEXT NOT NULL,
           "username" TEXT NOT NULL,
@@ -52,12 +48,10 @@ export async function GET(request: NextRequest) {
           "role" "UserRole" NOT NULL DEFAULT 'USER',
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL,
-
           CONSTRAINT "users_pkey" PRIMARY KEY ("id")
-      );
+      );`,
 
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "templates" (
+      `CREATE TABLE IF NOT EXISTS "templates" (
           "id" TEXT NOT NULL,
           "name" TEXT NOT NULL,
           "fileName" TEXT NOT NULL,
@@ -69,12 +63,10 @@ export async function GET(request: NextRequest) {
           "uploadedBy" TEXT NOT NULL,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL,
-
           CONSTRAINT "templates_pkey" PRIMARY KEY ("id")
-      );
+      );`,
 
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "uploads" (
+      `CREATE TABLE IF NOT EXISTS "uploads" (
           "id" TEXT NOT NULL,
           "fileName" TEXT NOT NULL,
           "fileUrl" TEXT NOT NULL,
@@ -85,12 +77,10 @@ export async function GET(request: NextRequest) {
           "templateId" TEXT NOT NULL,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL,
-
           CONSTRAINT "uploads_pkey" PRIMARY KEY ("id")
-      );
+      );`,
 
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "reports" (
+      `CREATE TABLE IF NOT EXISTS "reports" (
           "id" TEXT NOT NULL,
           "reportName" TEXT NOT NULL,
           "fileUrl" TEXT NOT NULL,
@@ -102,12 +92,10 @@ export async function GET(request: NextRequest) {
           "generatedBy" TEXT NOT NULL,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL,
-
           CONSTRAINT "reports_pkey" PRIMARY KEY ("id")
-      );
+      );`,
 
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "drafts" (
+      `CREATE TABLE IF NOT EXISTS "drafts" (
           "id" TEXT NOT NULL,
           "userId" TEXT NOT NULL,
           "uploadedTemplateId" TEXT,
@@ -124,27 +112,27 @@ export async function GET(request: NextRequest) {
           "acceptedAt" TIMESTAMP(3),
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL,
-
           CONSTRAINT "drafts_pkey" PRIMARY KEY ("id")
-      );
+      );`,
 
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "activity_logs" (
+      `CREATE TABLE IF NOT EXISTS "activity_logs" (
           "id" TEXT NOT NULL,
           "action" "ActivityAction" NOT NULL,
           "details" TEXT NOT NULL,
           "userId" TEXT NOT NULL,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
           CONSTRAINT "activity_logs_pkey" PRIMARY KEY ("id")
-      );
+      );`,
 
-      -- CreateIndex
-      CREATE UNIQUE INDEX IF NOT EXISTS "users_username_key" ON "users"("username");
-    `;
+      // Create indexes
+      `CREATE UNIQUE INDEX IF NOT EXISTS "users_username_key" ON "users"("username");`
+    ];
 
-    // Execute the migration using Prisma's $executeRawUnsafe
-    await prisma.$executeRawUnsafe(migrationSQL);
+    // Execute each command separately
+    for (let i = 0; i < commands.length; i++) {
+      console.log(`Executing command ${i + 1}/${commands.length}...`);
+      await prisma.$executeRawUnsafe(commands[i]);
+    }
 
     console.log('✅ Database migration completed successfully!');
 
