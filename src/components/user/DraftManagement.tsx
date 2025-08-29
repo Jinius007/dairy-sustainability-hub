@@ -27,10 +27,10 @@ export default function DraftManagement() {
 
   const fetchUploads = async () => {
     try {
-      const response = await fetch("/api/upload");
+      const response = await fetch("/api/user/dashboard");
       if (response.ok) {
         const data = await response.json();
-        setUploads(data);
+        setUploads(data.userUploads || []);
       }
     } catch (error) {
       console.error("Error fetching uploads:", error);

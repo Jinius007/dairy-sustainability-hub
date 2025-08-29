@@ -43,10 +43,10 @@ export default function DraftReports() {
 
   const fetchDrafts = async () => {
     try {
-      const response = await fetch("/api/drafts");
+      const response = await fetch("/api/user/dashboard");
       if (response.ok) {
         const data = await response.json();
-        setDrafts(data);
+        setDrafts(data.userDrafts || []);
       }
     } catch (error) {
       console.error("Error fetching drafts:", error);

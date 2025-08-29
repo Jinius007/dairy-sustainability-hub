@@ -1,47 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getDraftsByUserId } from '@/lib/mock-drafts';
+import { getUploadsByUserId } from '@/lib/mock-uploads';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    // Get user statistics
-    const [totalUploads, totalReports, recentUploads, recentReports] = await Promise.all([
-      prisma.upload.count({ where: { userId } }),
-      prisma.report.count({ where: { userId } }),
-      prisma.upload.findMany({
-        where: { userId },
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          template: {
-            select: {
-              name: true,
-              financialYear: true,
-            },
-          },
-        },
-      }),
-      prisma.report.findMany({
-        where: { userId },
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
+    const userId = session.user.id;
+
+    // Get user's drafts and uploads using mock data
+    const userDrafts = getDraftsByUserId(userId);
+    const userUploads = getUploadsByUserId(userId);
+
+    // Calculate statistics
+    const totalUploads = userUploads.length;
+    const totalDrafts = userDrafts.length;
+    const pendingDrafts = userDrafts.filter(draft => draft.status === 'PENDING_REVIEW').length;
+    const approvedDrafts = userDrafts.filter(draft => draft.status === 'APPROVED').length;
+
+    // Get recent activity (last 5 items)
+    const recentActivity = [
+      ...userDrafts.map(draft => ({
+        type: 'draft',
+        id: draft.id,
+        title: draft.fileName,
+        status: draft.status,
+        createdAt: draft.createdAt,
+        draftNumber: draft.draftNumber,
+        draftType: draft.draftType
+      })),
+      ...userUploads.map(upload => ({
+        type: 'upload',
+        id: upload.id,
+        title: upload.fileName,
+        status: upload.status,
+        createdAt: upload.createdAt
+      }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
 
     const dashboardData = {
       totalUploads,
-      totalReports,
-      recentUploads,
-      recentReports,
+      totalDrafts,
+      pendingDrafts,
+      approvedDrafts,
+      recentActivity,
+      userDrafts,
+      userUploads
     };
 
     return NextResponse.json(dashboardData);

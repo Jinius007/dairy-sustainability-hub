@@ -73,6 +73,13 @@ export function getAllUploads(): Upload[] {
   return mockUploads;
 }
 
+// Function to get uploads by user ID
+export function getUploadsByUserId(userId: string): Upload[] {
+  // Refresh from localStorage
+  mockUploads = getMockData('UPLOADS');
+  return mockUploads.filter((upload: Upload) => upload.userId === userId);
+}
+
 // Function to update upload status
 export function updateUploadStatus(id: string, status: string): Upload | null {
   // Refresh from localStorage
